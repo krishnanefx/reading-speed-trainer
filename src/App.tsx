@@ -232,13 +232,9 @@ function App() {
 
     // Load book-specific settings if they exist
     if (book.wpm) setWpm(book.wpm);
-    // Chunk size and font are global only for now, or could be added to Book interface
 
-    // Jump to last position
-    // We need to wait for 'words' to be populated which happens in Reader via useEffect
-    // For now, simpler: pass initialIndex to useReader? 
-    // Or just updating state here works if useReader reacts to it.
-    // Actually useReader takes text as input.
+    // Switch to reader view
+    setView('reader');
 
     // Force reset/seek after text load
     setTimeout(() => {
@@ -246,9 +242,6 @@ function App() {
         seek(book.currentIndex || 0);
       }
     }, 100);
-
-    // Save progress as we leave/close previous book? 
-    // Actually we save on pause/seek interval.
   };
 
   const handleBackToLibrary = () => {
