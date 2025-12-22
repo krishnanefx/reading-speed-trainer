@@ -4,15 +4,28 @@ interface ReaderProps {
   word: string;
   font: string;
   bionicMode?: boolean;
+  fontSize?: number; // 1-5 scale, default 3
 }
 
-const Reader: React.FC<ReaderProps> = ({ word, font, bionicMode = false }) => {
+const Reader: React.FC<ReaderProps> = ({ word, font, bionicMode = false, fontSize = 3 }) => {
   const getFontFamily = () => {
     switch (font) {
       case 'serif': return '"Merriweather", "Georgia", serif';
       case 'mono': return '"Fira Code", "Courier New", monospace';
       default: return '"Inter", system-ui, sans-serif';
     }
+  };
+
+  // Font size mapping: 1=small, 2=medium-small, 3=medium (default), 4=large, 5=extra-large
+  const getFontSizeStyle = () => {
+    const sizes = {
+      1: 'clamp(2rem, 8vw, 4rem)',
+      2: 'clamp(2.5rem, 12vw, 6rem)',
+      3: 'clamp(3rem, 15vw, 8rem)',
+      4: 'clamp(4rem, 18vw, 10rem)',
+      5: 'clamp(5rem, 22vw, 12rem)'
+    };
+    return sizes[fontSize as keyof typeof sizes] || sizes[3];
   };
 
   const renderBionic = (text: string) => {
@@ -37,7 +50,7 @@ const Reader: React.FC<ReaderProps> = ({ word, font, bionicMode = false }) => {
     <div className="reader-display">
       <div
         className="word-container"
-        style={{ fontFamily: getFontFamily() }}
+        style={{ fontFamily: getFontFamily(), fontSize: getFontSizeStyle() }}
       >
         {bionicMode ? renderBionic(word) : word}
       </div>

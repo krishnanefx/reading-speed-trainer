@@ -150,10 +150,11 @@ const Library: React.FC<LibraryProps> = ({ onSelectBook }) => {
                                 backgroundRepeat: 'no-repeat'
                             } : {}
                         }>
-                            {/* Only show title text if no cover image */}
+                            {/* Only show title text if no cover image (desktop grid) */}
                             {!book.cover && <div className="book-title-display">{book.title}</div>}
 
-                            <div className="book-progress-overlay">
+                            {/* Progress overlay for desktop grid view */}
+                            <div className="book-progress-overlay desktop-only">
                                 <div className="progress-info">
                                     <span className="progress-percent">{Math.round(book.progress * 100)}%</span>
                                     <span className="time-left">{getEstimatedTimeLeft(book)}</span>
@@ -161,6 +162,18 @@ const Library: React.FC<LibraryProps> = ({ onSelectBook }) => {
                                 <div className="progress-bar">
                                     <div className="progress-fill" style={{ width: `${book.progress * 100}%` }}></div>
                                 </div>
+                            </div>
+                        </div>
+
+                        {/* Mobile list view: Book info section with title and progress */}
+                        <div className="book-info-mobile">
+                            <div className="book-title-mobile">{book.title}</div>
+                            <div className="book-meta-mobile">
+                                <span className="progress-percent">{Math.round(book.progress * 100)}%</span>
+                                <span className="time-left">{getEstimatedTimeLeft(book)}</span>
+                            </div>
+                            <div className="progress-bar">
+                                <div className="progress-fill" style={{ width: `${book.progress * 100}%` }}></div>
                             </div>
                         </div>
 
@@ -383,6 +396,11 @@ const Library: React.FC<LibraryProps> = ({ onSelectBook }) => {
             background: rgba(255,255,255,0.02);
         }
 
+        /* Hide mobile-only elements on desktop */
+        .book-info-mobile {
+            display: none;
+        }
+
         /* --- Mobile Overhaul --- */
         @media (max-width: 640px) {
             .library-header {
@@ -418,81 +436,94 @@ const Library: React.FC<LibraryProps> = ({ onSelectBook }) => {
             .books-grid {
                 display: flex;
                 flex-direction: column;
-                gap: 1rem;
+                gap: 0.75rem;
             }
             
             .book-card {
                 aspect-ratio: auto;
                 flex-direction: row;
-                height: 110px;
-                padding: 0; /* Clear default padding if any */
-                transform: none !important; /* Disable hover lift on touch */
+                height: auto;
+                min-height: 100px;
+                padding: 0;
+                transform: none !important;
+                overflow: hidden;
             }
             
             .book-cover {
-                width: 80px;
+                width: 70px;
+                min-width: 70px;
                 flex: none;
-                padding: 0.5rem;
-                background: rgba(0,0,0,0.2);
+                padding: 0;
+                background: rgba(0,0,0,0.3);
+                border-radius: var(--radius-md) 0 0 var(--radius-md);
+            }
+            
+            /* Hide desktop overlay on mobile */
+            .book-progress-overlay.desktop-only {
+                display: none !important;
             }
             
             .book-title-display {
-                font-size: 0.75rem;
+                font-size: 0.65rem;
+                -webkit-line-clamp: 3;
+                padding: 0.5rem;
+            }
+            
+            /* Show mobile info section */
+            .book-info-mobile {
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+                flex: 1;
+                padding: 0.75rem 1rem;
+                min-width: 0;
+                gap: 0.5rem;
+            }
+            
+            .book-title-mobile {
+                font-size: 0.95rem;
+                font-weight: 600;
+                color: var(--color-text);
+                line-height: 1.3;
+                display: -webkit-box;
                 -webkit-line-clamp: 2;
-                max-height: 2.5em;
-                text-shadow: none;
+                -webkit-box-orient: vertical;
+                overflow: hidden;
+                text-overflow: ellipsis;
             }
             
-            .book-progress-overlay {
-                position: relative;
-                top: auto;
-                bottom: auto;
-                left: auto;
-                right: auto;
-                background: none;
-                flex: 1;
-                padding: 1rem;
+            .book-meta-mobile {
                 display: flex;
-                flex-direction: column;
-                justify-content: center;
+                gap: 0.75rem;
+                font-size: 0.8rem;
             }
             
-             /* Since we changed structure, we need to adapt visually.
-                But wait, .book-cover *contains* the title logic in JSX. 
-                This CSS change assumes JSX structure mostly. 
-                In the current JSX, book-title-display is INSIDE book-cover.
-                We might need to adjust JSX to pull title OUT of cover for list view?
-                Or we just style book-cover to be the "Left Side" and put title there.
-             */
+            .book-meta-mobile .progress-percent {
+                background: rgba(255, 255, 255, 0.1);
+                padding: 0.15rem 0.4rem;
+                border-radius: 4px;
+                font-weight: 600;
+            }
+            
+            .book-meta-mobile .time-left {
+                color: var(--color-primary);
+                font-weight: 600;
+            }
+            
+            .book-info-mobile .progress-bar {
+                margin-top: 0.25rem;
+            }
              
-             .book-cover {
-                 /* Override flex centering to allow custom layout inside */
-                 justify-content: center;
-                 align-items: center;
-             }
-             
-             .book-progress-overlay {
-                /* We want this to be the "Right Side" content */
-                position: static; /* flow normally */
-                background: transparent;
-                padding: 1rem;
-                justify-content: center;
-                display: flex;
-                flex-direction: column;
-                flex: 1;
-             }
-             
-             /* Hide title inside cover if image exists? No cover usually text. */
-             
-             .delete-btn {
-                 opacity: 1; /* Always show on mobile */
-                 top: 50%;
-                 transform: translateY(-50%);
-                 right: 1rem;
-                 width: 36px;
-                 height: 36px;
-                 background: rgba(255,255,255,0.1);
-             }
+            .delete-btn {
+                opacity: 1;
+                position: static;
+                align-self: center;
+                margin-right: 0.75rem;
+                flex-shrink: 0;
+                width: 32px;
+                height: 32px;
+                background: rgba(255,255,255,0.08);
+            }
         }
       `}</style>
         </div>
