@@ -1,73 +1,64 @@
-# React + TypeScript + Vite
+# ⚡ FlashRead
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+**FlashRead** is a high-performance reading speed trainer application designed to help users increase their reading speed and comprehension through Rapid Serial Visual Presentation (RSVP) and Bionic Reading technologies.
 
-Currently, two official plugins are available:
+Built with a focus on performance, battery efficiency, and offline-first reliability, FlashRead offers a premium, app-like experience on the web.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## 🚀 Key Features
 
-## React Compiler
+-   **RSVP Reader**: Stream text word-by-word at speeds from 60 to 2000 WPM.
+-   **Bionic Reading**: Highlights the start of words to guide the eye and improve brain processing speed.
+-   **Offline-First Library**: Add books (paste text or upload) and read anywhere. Data stored locally via IndexedDB.
+-   **Cloud Sync**: Seamlessly sync progress, books, and sessions across devices using Supabase.
+-   **Gamification**: Track streaks, unlock achievements, and view detailed reading statistics.
+-   **Eye Gym**: Exercises to improve peripheral vision and eye movement speed.
+-   **PWA Support**: Installable as a native-like app on iOS and Android.
+-   **Performance Optimized**: Engineered for minimal battery usage and stable high-speed rendering (60fps+).
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## 🛠️ Tech Stack
 
-## Expanding the ESLint configuration
+-   **Frontend**: React 18, TypeScript, Vite
+-   **State Management**: React Hooks (custom `useReader`), Local State
+-   **Database**: IndexedDB (via `idb`) for local storage, Supabase for cloud sync
+-   **Styling**: Pure CSS Variables with a responsive, modern design system
+-   **Tooling**: ESLint, Prettier
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+## 🏗️ Architecture & Optimization
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+The codebase follows strict performance guidelines to ensure smooth text streaming at high speeds:
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+-   **Reader Isolation**: The main reading loop is isolated in `ReaderView.tsx` to prevent unnecessary re-renders of the global application state.
+-   **Memoization**: Heavy components and calculation-intensive logic (like Bionic text processing) are memoized using `React.memo` and `useMemo`.
+-   **Efficient Loops**: The critical RSVP timing loop uses `setTimeout` with drift correction logic and avoids React state thrashing.
+-   **Clean Code**: Component-driven architecture with clear separation of concerns (Logic vs UI).
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+## 🚦 Getting Started
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+1.  **Clone the repository**:
+    ```bash
+    git clone https://github.com/yourusername/flashread.git
+    cd flashread
+    ```
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+2.  **Install dependencies**:
+    ```bash
+    npm install
+    ```
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+3.  **Start the development server**:
+    ```bash
+    npm run dev
+    ```
+
+4.  **Build for production**:
+    ```bash
+    npm run build
+    ```
+
+## 📱 Mobile Support
+
+FlashRead is fully responsive and optimized for mobile devices. Add it to your home screen for the best experience (full-screen, standalone mode).
+
+## 📄 License
+
+MIT License.

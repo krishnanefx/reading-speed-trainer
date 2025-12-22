@@ -123,7 +123,8 @@ textarea:focus {
 
 .container {
   width: 100%;
-  max-width: 1200px;
+  max-width: 1800px;
+  /* Much wider for desktop */
   margin: 0 auto;
   /* Responsive padding */
   padding: 1rem;
@@ -140,6 +141,12 @@ textarea:focus {
 
 @media (min-width: 1024px) {
   .container {
-    padding: 2rem 3rem;
+    padding: 2rem 4rem;
+  }
+}
+
+@media (min-width: 1600px) {
+  .container {
+    padding: 2rem 6rem;
   }
 }
