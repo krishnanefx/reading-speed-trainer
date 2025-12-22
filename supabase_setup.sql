@@ -35,10 +35,43 @@ create table reading_sessions (
   created_at timestamp with time zone default timezone('utc'::text, now())
 );
 
--- 4. Enable Row Level Security (RLS)
+-- 4. Create Books Table (Content & Progress)
+create table books (
+  id text primary key,
+  user_id uuid references profiles(id) not null,
+  title text not null,
+  content text, -- Storing full text here. For very large books, Storage Buckets are better, but Text is fine for <10MB
+  progress float default 0,
+  total_words int default 0,
+  current_index int default 0,
+  last_read bigint,
+  wpm int,
+  cover text, -- Base64 string
+  created_at timestamp with time zone default timezone('utc'::text, now())
+);
+
+-- 5. Enable Row Level Security (RLS)
 alter table profiles enable row level security;
 alter table user_progress enable row level security;
 alter table reading_sessions enable row level security;
+alter table books enable row level security;
+
+-- 6. Create Policies (Security Rules) --
+
+-- ... (Previous policies) ...
+
+-- Books: Users can only see/edit their own books
+create policy "Users can see own books." on books
+  for select using ( auth.uid() = user_id );
+
+create policy "Users can insert own books." on books
+  for insert with check ( auth.uid() = user_id );
+
+create policy "Users can update own books." on books
+  for update using ( auth.uid() = user_id );
+
+create policy "Users can delete own books." on books
+  for delete using ( auth.uid() = user_id );
 
 -- 5. Create Policies (Security Rules)
 
