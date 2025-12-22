@@ -193,10 +193,10 @@ const Library: React.FC<LibraryProps> = ({ onSelectBook }) => {
             <style>{`
         .library-container {
             width: 100%;
-            max-width: 1000px;
+            /* max-width removed to fill usage of .container from index.css */
             margin: 0 auto;
-            padding: 1rem;
-            padding-bottom: 5rem; /* Space for bottom nav or just aesthetics */
+            padding: 0; /* Let parent handle padding */
+            padding-bottom: 5rem;
         }
 
         .library-header {

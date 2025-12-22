@@ -17,7 +17,7 @@ interface ControlsProps {
   timeLeft: string;
 }
 
-const Controls: React.FC<ControlsProps> = ({
+const ControlsComponent: React.FC<ControlsProps> = ({
   isPlaying,
   onTogglePlay,
   onReset,
@@ -348,4 +348,5 @@ const Controls: React.FC<ControlsProps> = ({
   );
 };
 
+const Controls = React.memo(ControlsComponent);
 export default Controls;
