@@ -11,13 +11,30 @@ const Gym = lazy(() => import('./components/Gym').then(m => ({ default: m.Gym })
 const Achievements = lazy(() => import('./components/Achievements').then(m => ({ default: m.Achievements })));
 
 import { useReader } from './hooks/useReader';
-import { updateBookProgress, logSession, getUserProgress, updateUserProgress, getSessions, getBooks } from './utils/db';
+import { updateBookProgress, logSession, getUserProgress, updateUserProgress, getSessions, getBooks, syncFromCloud } from './utils/db'; // Corrected import
 import type { Book } from './utils/db';
 import { checkNewAchievements } from './utils/achievements';
+import { supabase } from './lib/supabase'; // Direct import
 
 function App() {
   const [view, setView] = useState<'library' | 'reader' | 'settings' | 'stats' | 'gym' | 'achievements'>('library');
   const [currentBook, setCurrentBook] = useState<Book | null>(null);
+  const [sessionUser, setSessionUser] = useState<any>(null);
+  const [isSyncing, setIsSyncing] = useState(false);
+  // const [books, setBooks] = useState<Book[]>([]); // Library manages its own books for now, or we ignore this
+  const [gamificationProgress, setGamificationProgress] = useState<any>(null); // Renamed from progress
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSessionUser(session?.user ?? null);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSessionUser(session?.user ?? null);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
 
   // Reader State
   const [text, setText] = useState('');
@@ -32,17 +49,79 @@ function App() {
   const sessionStartTimeRef = useRef<number | null>(null);
   const wordsReadStartRef = useRef<number>(0);
 
-  // Initialize global settings
+  // Auto-Sync Every 5 Minutes
   useEffect(() => {
-    const theme = localStorage.getItem('theme') || 'default';
-    document.documentElement.setAttribute('data-theme', theme);
+    const interval = setInterval(async () => {
+      if (sessionUser) {
+        console.log('Running Auto-Sync...');
+        setIsSyncing(true);
+        try {
+          // Sync from cloud first
+          await syncFromCloud();
 
-    const savedBionic = localStorage.getItem('bionicMode');
-    setBionicMode(savedBionic === 'true');
+          // Then Push local changes (Books) - dirty check is complex, so iterate all?
+          // Or just rely on updateBookProgress doing its job immediately.
+          // But let's verify connectivity.
+        } catch (e) {
+          console.error("Auto Sync Failed", e);
+        } finally {
+          setIsSyncing(false);
+        }
+      }
+    }, 5 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [sessionUser]);
 
-    const savedAuto = localStorage.getItem('autoAccelerate');
-    setAutoAccelerate(savedAuto === 'true');
-  }, []);
+  // Initial Data Load (Books & Settings)
+  useEffect(() => {
+    const loadData = async () => {
+      // Load Settings from Sync/DB
+      const loadedProgress = await getUserProgress();
+
+      // Defaults Logic: Use Cloud Preference -> then LocalStorage -> then Hardcoded
+      const prefWpm = loadedProgress.defaultWpm || parseInt(localStorage.getItem('defaultWpm') || '300');
+      const prefChunk = loadedProgress.defaultChunkSize || parseInt(localStorage.getItem('defaultChunkSize') || '1');
+      const prefFont = loadedProgress.defaultFont || localStorage.getItem('defaultFont') || 'mono';
+      const prefTheme = loadedProgress.theme || localStorage.getItem('theme') || 'default';
+      const prefBionic = loadedProgress.bionicMode ?? (localStorage.getItem('bionicMode') === 'true');
+      const prefAuto = loadedProgress.autoAccelerate ?? (localStorage.getItem('autoAccelerate') === 'true');
+
+      // Set State
+      setWpm(prefWpm);
+      setChunkSize(prefChunk);
+      setFont(prefFont);
+      setBionicMode(prefBionic);
+      setAutoAccelerate(prefAuto);
+
+      // Apply Theme
+      document.documentElement.setAttribute('data-theme', prefTheme);
+
+      // Load Gamification
+      setGamificationProgress(loadedProgress as any); // Typings might mismatch slightly, cast safe here
+
+      // Sync from Cloud (might overwrite above if newer)
+      if (sessionUser) {
+        await syncFromCloud();
+        // Reload after sync?
+        const postSyncProgress = await getUserProgress();
+        if (postSyncProgress.theme && postSyncProgress.theme !== prefTheme) {
+          document.documentElement.setAttribute('data-theme', postSyncProgress.theme);
+        }
+        // Update other states if they changed after sync
+        setWpm(postSyncProgress.defaultWpm || prefWpm);
+        setChunkSize(postSyncProgress.defaultChunkSize || prefChunk);
+        setFont(postSyncProgress.defaultFont || prefFont);
+        setBionicMode(postSyncProgress.bionicMode ?? prefBionic);
+        setAutoAccelerate(postSyncProgress.autoAccelerate ?? prefAuto);
+        setGamificationProgress(postSyncProgress as any);
+      }
+    };
+    loadData();
+  }, [sessionUser]);
+
+  // ... (handleSelectBook below needs to use current defaults, but defaults are in Settings component state mostly)
+  // We need to hoist defaults to App level or read from DB. 
+  // Reading from DB in handleSelectBook is async but fast.
 
   const refreshSettings = () => {
     // Re-read settings that might have changed from Settings screen

@@ -27,6 +27,13 @@ create table if not exists user_progress (
   gym_best_time float,
   unlocked_achievements jsonb default '[]'::jsonb,
   last_read_date date,
+  -- Settings Sync
+  default_wpm int,
+  default_chunk_size int,
+  default_font text,
+  theme text,
+  auto_accelerate boolean,
+  bionic_mode boolean,
   updated_at timestamp with time zone default timezone('utc'::text, now())
 );
 
