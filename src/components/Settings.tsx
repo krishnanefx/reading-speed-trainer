@@ -224,6 +224,17 @@ export const Settings: React.FC<SettingsProps> = ({ onBack, updateTheme }) => {
                         <button className="btn-option" onClick={() => document.getElementById('import-file')?.click()} style={{ width: 'auto', padding: '0.75rem 1.5rem' }}>
                             Restore Backup
                         </button>
+                        <button className="btn-option active" onClick={async () => {
+                            const { getBooks, saveBook, syncFromCloud } = await import('../utils/db');
+                            const books = await getBooks();
+                            for (const book of books) {
+                                await saveBook(book); // Triggers upsert to Supabase
+                            }
+                            await syncFromCloud(); // Pull any others
+                            alert(`Synced ${books.length} books to Cloud!`);
+                        }} style={{ width: 'auto', padding: '0.75rem 1.5rem' }}>
+                            Force Cloud Sync
+                        </button>
                         <input
                             id="import-file"
                             type="file"
