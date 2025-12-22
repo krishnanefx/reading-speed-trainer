@@ -100,6 +100,36 @@ const syncSessionToCloud = async (s: Session) => {
     if (error) console.error('Cloud Sync Error (Session):', error);
 };
 
+const syncBookToCloud = async (book: Book) => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.user) return;
+
+    const { error } = await supabase
+        .from('books')
+        .upsert({
+            id: book.id,
+            user_id: session.user.id,
+            title: book.title,
+            content: book.content,
+            progress: book.progress,
+            total_words: book.totalWords,
+            current_index: book.currentIndex || 0,
+            last_read: book.lastRead || Date.now(),
+            wpm: book.wpm,
+            cover: book.cover
+        });
+
+    if (error) console.error('Cloud Sync Error (Book):', error);
+};
+
+const deleteBookFromCloud = async (id: string) => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.user) return;
+
+    const { error } = await supabase.from('books').delete().eq('id', id);
+    if (error) console.error('Cloud Sync Error (Delete Book):', error);
+};
+
 // Main Sync Function (Pull from Cloud)
 export const syncFromCloud = async () => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -124,11 +154,37 @@ export const syncFromCloud = async () => {
             gymBestTime: cloudProgress.gym_best_time,
             unlockedAchievements: cloudProgress.unlocked_achievements || [],
             lastReadDate: cloudProgress.last_read_date,
-            dailyGoalMetCount: 0 // Not synced yet in SQL schema, keeping local or default
+            dailyGoalMetCount: 0
         };
         // Update local without triggering another sync loop ideally,
         // but updateUserProgress is fine as it's an upsert.
         await updateUserProgress(localProgress, false); // Add flag to skip upload
+    }
+
+    // 2. Get Books
+    const { data: cloudBooks } = await supabase
+        .from('books')
+        .select('*')
+        .eq('user_id', session.user.id);
+
+    if (cloudBooks && cloudBooks.length > 0) {
+        const db = await initDB();
+        const tx = db.transaction(BOOKS_STORE, 'readwrite');
+        for (const cb of cloudBooks) {
+            const localBook: Book = {
+                id: cb.id,
+                title: cb.title,
+                content: cb.content || '',
+                progress: cb.progress,
+                totalWords: cb.total_words,
+                currentIndex: cb.current_index,
+                lastRead: cb.last_read,
+                wpm: cb.wpm,
+                cover: cb.cover
+            };
+            await tx.store.put(localBook);
+        }
+        await tx.done;
     }
 
     // 2. Get Sessions? (Maybe too many to sync all at once on every load.
@@ -139,17 +195,34 @@ export const syncFromCloud = async () => {
 
 export const saveBook = async (book: Book) => {
     const db = await initDB();
-    return db.put(BOOKS_STORE, book);
+    const val = {
+        ...book,
+        content: book.content || book.text || '',
+    };
+    await db.put(BOOKS_STORE, val);
+    syncBookToCloud(val);
 };
 
 export const getBooks = async (): Promise<Book[]> => {
     const db = await initDB();
-    return db.getAll(BOOKS_STORE);
+    const books = await db.getAll(BOOKS_STORE);
+    return books.map((b: any) => ({
+        ...b,
+        content: b.content || b.text || '',
+        totalWords: b.totalWords || (b.content || b.text || '').trim().split(/\s+/).length
+    }));
 };
 
 export const getBook = async (id: string): Promise<Book | undefined> => {
     const db = await initDB();
-    return db.get(BOOKS_STORE, id);
+    const book = await db.get(BOOKS_STORE, id);
+    if (book) {
+        return {
+            ...book,
+            content: book.content || book.text || ''
+        }
+    }
+    return undefined;
 };
 
 export const updateBookProgress = async (id: string, progress: number, currentIndex?: number, wpm?: number) => {
@@ -161,12 +234,14 @@ export const updateBookProgress = async (id: string, progress: number, currentIn
         book.lastRead = Date.now();
         if (wpm) book.wpm = wpm;
         await db.put(BOOKS_STORE, book);
+        syncBookToCloud(book);
     }
 };
 
 export const deleteBook = async (id: string) => {
     const db = await initDB();
-    return db.delete(BOOKS_STORE, id);
+    await db.delete(BOOKS_STORE, id);
+    deleteBookFromCloud(id);
 };
 
 export const logSession = async (session: Session) => {
