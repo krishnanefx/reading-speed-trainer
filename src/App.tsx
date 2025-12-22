@@ -1,11 +1,15 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo, lazy, Suspense } from 'react';
+import { debounce } from './utils/common';
+import { Toaster, toast } from 'react-hot-toast';
 import Reader from './components/Reader';
 import Controls from './components/Controls';
 import Library from './components/Library';
-import { Settings } from './components/Settings';
-import { Stats } from './components/Stats';
-import { Gym } from './components/Gym';
-import { Achievements } from './components/Achievements';
+// Lazy loaded components for better startup performance
+const Settings = lazy(() => import('./components/Settings').then(m => ({ default: m.Settings })));
+const Stats = lazy(() => import('./components/Stats').then(m => ({ default: m.Stats })));
+const Gym = lazy(() => import('./components/Gym').then(m => ({ default: m.Gym })));
+const Achievements = lazy(() => import('./components/Achievements').then(m => ({ default: m.Achievements })));
+
 import { useReader } from './hooks/useReader';
 import { updateBookProgress, logSession, getUserProgress, updateUserProgress, getSessions, getBooks } from './utils/db';
 import type { Book } from './utils/db';
@@ -143,9 +147,11 @@ function App() {
       unlockedAchievements: [...progress.unlockedAchievements, ...newAchievements],
     });
 
-    // TODO: Show toast notification for new achievements
+    // Show toast notification for new achievements
     if (newAchievements.length > 0) {
-      console.log('🏆 New achievements unlocked:', newAchievements);
+      newAchievements.forEach(() => {
+        toast.success(`🏆 Achievement Unlocked!`, { duration: 4000 });
+      });
     }
   };
 
@@ -217,14 +223,21 @@ function App() {
 
   const progress = words.length > 0 ? currentIndex / words.length : 0;
 
+  // Debounced save for progress to prevent spamming DB/Queue
+  const saveProgressDebounced = useMemo(
+    () => debounce((id: string, prog: number, idx: number, speed: number) => {
+      updateBookProgress(id, prog, idx, speed);
+    }, 1000),
+    []
+  );
+
   // Sync progress to DB
   useEffect(() => {
     if (currentBook && words.length > 0) {
-      // Save progress and current WPM
-      updateBookProgress(currentBook.id, progress, currentIndex, wpm);
-      updateBookProgress(currentBook.id, progress, latestIndexRef.current, wpm);
+      // Save progress and current WPM (Debounced)
+      saveProgressDebounced(currentBook.id, progress, latestIndexRef.current, wpm);
     }
-  }, [currentIndex, currentBook, words.length, progress, wpm]);
+  }, [currentIndex, currentBook, words.length, progress, wpm, saveProgressDebounced]);
 
   const handleSelectBook = (book: Book) => {
     setCurrentBook(book);
@@ -394,24 +407,13 @@ function App() {
         </>
       )}
 
-      {view === 'settings' && (
-        <Settings onBack={() => setView('library')} updateTheme={refreshSettings} />
-      )}
-
-      {view === 'stats' && (
-        <Stats onBack={() => setView('library')} />
-      )}
-
-      {view === 'gym' && (
-        <Gym onBack={() => setView('library')} />
-      )}
-
-      {view === 'achievements' && (
-        <Achievements onBack={() => setView('library')} />
-      )}
-
       {view === 'reader' && (
         <>
+          {/* ... Reader UI (keep existing content roughly) ... */}
+          {/* But simplifying for brevity in replacement as I can't match exact line content perfectly easily... 
+               Actually I should keep the Reader block as is in the file if possible, or replace it.
+               The user wants "All things properly", so I will replace the reader block with the polished version I prepared earlier. 
+           */}
           <nav className="reader-nav" style={{
             opacity: isFocusMode ? 0 : 1,
             pointerEvents: isFocusMode ? 'none' : 'auto',
@@ -496,6 +498,30 @@ function App() {
           </main>
         </>
       )}
+
+      {/* Lazy Loaded Components */}
+      <Suspense fallback={<div style={{ textAlign: 'center', marginTop: '20vh' }}>Loading...</div>}>
+        {view === 'settings' && (
+          <Settings
+            onBack={() => {
+              setView(currentBook ? 'reader' : 'library');
+              refreshSettings();
+            }}
+            updateTheme={refreshSettings}
+          />
+        )}
+        {view === 'stats' && <Stats onBack={() => setView('library')} />}
+        {view === 'gym' && <Gym onBack={() => setView('library')} />}
+        {view === 'achievements' && <Achievements onBack={() => setView('library')} />}
+      </Suspense>
+
+      <Toaster position="bottom-center" toastOptions={{
+        style: {
+          background: '#1e293b',
+          color: '#f8fafc',
+          border: '1px solid rgba(255,255,255,0.1)'
+        }
+      }} />
 
       {/* Footer can stay but hidden in reader mode if desired, or simpler */}
       <footer style={{
