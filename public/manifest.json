@@ -1,0 +1,19 @@
+{
+  "name": "FlashRead",
+  "short_name": "FlashRead",
+  "description": "Speed reading trainer to help you read faster and comprehend more.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/vite.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["education", "productivity", "books"]
+}
