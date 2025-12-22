@@ -73,11 +73,17 @@ create policy "Users can update own sessions." on reading_sessions
   for update using ( auth.uid() = user_id );
 
 -- 6. Trigger to automatically create profile on signup
+-- 6. Trigger to automatically create profile on signup
 create or replace function public.handle_new_user()
 returns trigger as $$
 begin
   insert into public.profiles (id, email, full_name, avatar_url)
-  values (new.id, new.email, new.raw_user_meta_data->>'full_name', new.raw_user_meta_data->>'avatar_url');
+  values (
+    new.id, 
+    new.email, 
+    coalesce(new.raw_user_meta_data->>'full_name', ''), 
+    coalesce(new.raw_user_meta_data->>'avatar_url', '')
+  );
   
   -- Also initialize empty progress
   insert into public.user_progress (user_id)
@@ -85,7 +91,7 @@ begin
   
   return new;
 end;
-$$ language plpgsql security definer;
+$$ language plpgsql security definer set search_path = public;
 
 create trigger on_auth_user_created
   after insert on auth.users
