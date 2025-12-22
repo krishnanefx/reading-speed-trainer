@@ -41,6 +41,13 @@ export interface UserProgress {
     unlockedAchievements: string[];
     lastReadDate: string; // ISO Date string YYYY-MM-DD
     gymBestTime: number | null;
+    // Settings
+    defaultWpm?: number;
+    defaultChunkSize?: number;
+    defaultFont?: string;
+    theme?: string;
+    autoAccelerate?: boolean;
+    bionicMode?: boolean;
 }
 
 export const initDB = async () => {
@@ -154,7 +161,13 @@ export const syncFromCloud = async () => {
             gymBestTime: cloudProgress.gym_best_time,
             unlockedAchievements: cloudProgress.unlocked_achievements || [],
             lastReadDate: cloudProgress.last_read_date,
-            dailyGoalMetCount: 0
+            dailyGoalMetCount: 0,
+            defaultWpm: cloudProgress.default_wpm,
+            defaultChunkSize: cloudProgress.default_chunk_size,
+            defaultFont: cloudProgress.default_font,
+            theme: cloudProgress.theme,
+            autoAccelerate: cloudProgress.auto_accelerate,
+            bionicMode: cloudProgress.bionic_mode
         };
         // Update local without triggering another sync loop ideally,
         // but updateUserProgress is fine as it's an upsert.
@@ -171,6 +184,8 @@ export const syncFromCloud = async () => {
         const db = await initDB();
         const tx = db.transaction(BOOKS_STORE, 'readwrite');
         for (const cb of cloudBooks) {
+            // Only overwrite if cloud is newer or local doesn't exist?
+            // For simplicity, cloud is truth.
             const localBook: Book = {
                 id: cb.id,
                 title: cb.title,
@@ -187,8 +202,28 @@ export const syncFromCloud = async () => {
         await tx.done;
     }
 
-    // 2. Get Sessions? (Maybe too many to sync all at once on every load.
-    // For now, let's just sync progress as that's the critical gamification part.)
+    // 3. Get Sessions (Fix for empty sessions table)
+    const { data: cloudSessions } = await supabase
+        .from('reading_sessions')
+        .select('*')
+        .eq('user_id', session.user.id);
+
+    if (cloudSessions && cloudSessions.length > 0) {
+        const db = await initDB();
+        const tx = db.transaction(SESSIONS_STORE, 'readwrite');
+        for (const cs of cloudSessions) {
+            const localSession: Session = {
+                id: cs.id,
+                bookId: cs.book_id,
+                durationSeconds: cs.duration_seconds,
+                wordsRead: cs.words_read,
+                averageWpm: cs.average_wpm,
+                timestamp: cs.timestamp
+            };
+            await tx.store.put(localSession);
+        }
+        await tx.done;
+    }
 
     return true;
 };
