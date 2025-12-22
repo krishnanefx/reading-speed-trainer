@@ -14,7 +14,8 @@ export interface Book {
     progress: number; // 0 to 1
     totalWords: number;
     cover?: string; // Base64 image string
-    // Legacy fields that might be passed but we are moving away from or need to add back if critical
+    // Legacy fields
+    text?: string;
     currentIndex?: number;
     lastRead?: number;
     wpm?: number;
