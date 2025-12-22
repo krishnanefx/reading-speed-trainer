@@ -551,23 +551,28 @@ function App() {
                       flex-direction: row;
                       justify-content: space-between;
                       align-items: center;
-                      gap: 0.5rem;
-                      margin-bottom: 1.5rem;
+                      gap: 0.75rem;
+                      margin-bottom: 1rem;
                       padding-bottom: 1rem;
                       border-bottom: 1px solid rgba(255,255,255,0.05);
                   }
                   
                   .header-content {
                       text-align: left;
+                      flex: 1;
+                      min-width: 0; /* Allow content to shrink */
                   }
                   
                   .app-title {
-                      font-size: 1.5rem;
+                      font-size: 1.25rem;
                       margin: 0;
+                      white-space: nowrap;
+                      overflow: hidden;
+                      text-overflow: ellipsis;
                   }
                   
                   .app-subtitle {
-                      display: none; /* Hide subtitle on mobile to save space */
+                      display: none;
                   }
                   
                   .header-nav {
@@ -575,11 +580,17 @@ function App() {
                       border: none;
                       box-shadow: none;
                       padding: 0;
-                      gap: 0.25rem;
+                      gap: 0;
+                      flex-shrink: 0; /* Prevent icons from shrinking */
                   }
                   
                   .nav-btn {
-                      padding: 0.5rem;
+                      padding: 0.4rem;
+                  }
+                  
+                  .nav-btn svg {
+                      width: 20px;
+                      height: 20px;
                   }
               }
             `}</style>
@@ -590,18 +601,14 @@ function App() {
 
       {view === 'reader' && (
         <>
-          {/* ... Reader UI (keep existing content roughly) ... */}
-          {/* But simplifying for brevity in replacement as I can't match exact line content perfectly easily... 
-               Actually I should keep the Reader block as is in the file if possible, or replace it.
-               The user wants "All things properly", so I will replace the reader block with the polished version I prepared earlier. 
-           */}
           <nav className="reader-nav" style={{
             opacity: isFocusMode ? 0 : 1,
             pointerEvents: isFocusMode ? 'none' : 'auto',
             display: 'flex',
             alignItems: 'center',
             marginBottom: '1rem',
-            transition: 'opacity 0.3s'
+            transition: 'opacity 0.3s',
+            position: isFocusMode ? 'absolute' : 'relative'
           }}>
             <button onClick={handleBackToLibrary} className="btn-back" style={{
               background: 'transparent',
@@ -615,46 +622,50 @@ function App() {
             }}>
               ← Library
             </button>
-            <div style={{ flex: 1, textAlign: 'center', fontWeight: 600 }}>
+            <div style={{ flex: 1, textAlign: 'center', fontWeight: 600, fontSize: '0.9rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {currentBook?.title}
             </div>
-            <div style={{ width: '80px' }}></div> {/* Spacer for centering */}
+            <div style={{ width: '80px' }}></div>
           </nav>
 
-          <main style={{
+          <main className={`reader-main ${isFocusMode ? 'focus-active' : ''}`} style={{
             display: 'flex',
             flexDirection: 'column',
             justifyContent: isFocusMode ? 'center' : 'flex-start',
             flex: 1,
-            minHeight: isFocusMode ? '80vh' : 'auto'
+            minHeight: isFocusMode ? '100vh' : 'auto',
+            paddingBottom: isFocusMode ? '0' : '280px', /* Prevent overlap with fixed controls */
+            transition: 'all 0.3s ease'
           }}>
             <div style={{ position: 'relative' }}>
               <Reader word={currentDisplay} font={font} bionicMode={bionicMode} />
 
               <button
                 onClick={() => setIsFocusMode(!isFocusMode)}
+                className="focus-btn"
                 style={{
                   position: 'absolute',
                   top: '10px',
                   right: '10px',
-                  background: 'rgba(255,255,255,0.05)',
+                  background: isFocusMode ? 'var(--color-primary)' : 'rgba(255,255,255,0.08)',
                   border: 'none',
                   borderRadius: '50%',
-                  width: '32px',
-                  height: '32px',
+                  width: '40px',
+                  height: '40px',
                   cursor: 'pointer',
-                  color: 'var(--color-text-secondary)',
+                  color: isFocusMode ? 'white' : 'var(--color-text-secondary)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  zIndex: 10,
-                  transition: 'all 0.2s'
+                  zIndex: 100,
+                  transition: 'all 0.2s',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.3)'
                 }}
                 title="Toggle Focus Mode (Press 'F')"
               >
-                <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   {isFocusMode ? (
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                   ) : (
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
                   )}
@@ -662,21 +673,81 @@ function App() {
               </button>
             </div>
 
-            <Controls
-              isPlaying={isPlaying}
-              onTogglePlay={togglePlay}
-              onReset={reset}
-              wpm={wpm}
-              setWpm={setWpm}
-              chunkSize={chunkSize}
-              setChunkSize={setChunkSize}
-              progress={progress}
-              onSeek={handleSeek}
-              font={font}
-              setFont={setFont}
-              timeLeft={timeLeftString}
-            />
+            {!isFocusMode && (
+              <Controls
+                isPlaying={isPlaying}
+                onTogglePlay={togglePlay}
+                onReset={reset}
+                wpm={wpm}
+                setWpm={setWpm}
+                chunkSize={chunkSize}
+                setChunkSize={setChunkSize}
+                progress={progress}
+                onSeek={handleSeek}
+                font={font}
+                setFont={setFont}
+                timeLeft={timeLeftString}
+              />
+            )}
+
+            {/* Minimal controls in focus mode */}
+            {isFocusMode && (
+              <div style={{
+                position: 'fixed',
+                bottom: '2rem',
+                left: '50%',
+                transform: 'translateX(-50%)',
+                display: 'flex',
+                gap: '1rem',
+                zIndex: 100
+              }}>
+                <button
+                  onClick={togglePlay}
+                  style={{
+                    background: isPlaying ? 'var(--color-accent)' : 'var(--color-primary)',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '50%',
+                    width: '72px',
+                    height: '72px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    boxShadow: '0 4px 20px rgba(0,0,0,0.4)',
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  {isPlaying ? (
+                    <svg width="32" height="32" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
+                    </svg>
+                  ) : (
+                    <svg width="32" height="32" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M8 5v14l11-7z" />
+                    </svg>
+                  )}
+                </button>
+              </div>
+            )}
           </main>
+
+          <style>{`
+            @media (max-width: 640px) {
+              .reader-main {
+                padding-bottom: 320px !important; /* Extra space for bottom controls */
+              }
+              
+              .focus-active {
+                padding-bottom: 100px !important;
+              }
+              
+              .focus-btn {
+                width: 48px !important;
+                height: 48px !important;
+              }
+            }
+          `}</style>
         </>
       )}
 
