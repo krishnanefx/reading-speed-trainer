@@ -28,9 +28,13 @@ const Reader: React.FC<ReaderProps> = ({ word, font, bionicMode = false, fontSiz
     return sizes[fontSize as keyof typeof sizes] || sizes[3];
   };
 
-  const renderBionic = (text: string) => {
-    const words = text.split(' ');
-    return words.map((w, i) => {
+  const bionicSegments = React.useMemo(() => {
+    if (!bionicMode) return null;
+
+    // Only process a limited length to prevent stalling if "word" is huge (edge case)
+    const textToProcess = word.length > 500 ? word.slice(0, 500) : word;
+
+    return textToProcess.split(' ').map((w, i) => {
       if (!w.trim()) return null;
       // Determine split point (first half bold)
       const split = Math.ceil(w.length / 2);
@@ -44,7 +48,7 @@ const Reader: React.FC<ReaderProps> = ({ word, font, bionicMode = false, fontSiz
         </span>
       );
     });
-  };
+  }, [word, bionicMode]);
 
   return (
     <div className="reader-display">
@@ -52,7 +56,7 @@ const Reader: React.FC<ReaderProps> = ({ word, font, bionicMode = false, fontSiz
         className="word-container"
         style={{ fontFamily: getFontFamily(), fontSize: getFontSizeStyle() }}
       >
-        {bionicMode ? renderBionic(word) : word}
+        {bionicMode ? bionicSegments : word}
       </div>
 
       {/* Guiding Lines for visual focus */}
