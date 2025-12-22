@@ -183,6 +183,7 @@ const Library: React.FC<LibraryProps> = ({ onSelectBook }) => {
             max-width: 1000px;
             margin: 0 auto;
             padding: 1rem;
+            padding-bottom: 5rem; /* Space for bottom nav or just aesthetics */
         }
 
         .library-header {
@@ -190,19 +191,22 @@ const Library: React.FC<LibraryProps> = ({ onSelectBook }) => {
             justify-content: space-between;
             align-items: center;
             margin-bottom: 2rem;
+            flex-wrap: wrap; /* Allow wrapping on very small screens */
+            gap: 1rem;
         }
 
         .library-header h2 {
-            font-size: 1.5rem;
-            font-weight: 700;
+            font-size: 1.75rem;
+            font-weight: 800;
             color: var(--color-text);
             margin: 0;
+            letter-spacing: -0.02em;
         }
 
         .btn-upload {
             background: var(--color-primary);
             color: white;
-            padding: 0.75rem 1.5rem;
+            padding: 0.75rem 1.25rem;
             border-radius: var(--radius-full);
             font-weight: 600;
             cursor: pointer;
@@ -212,17 +216,18 @@ const Library: React.FC<LibraryProps> = ({ onSelectBook }) => {
             align-items: center;
             justify-content: center;
             white-space: nowrap;
+            font-size: 0.95rem;
+            gap: 0.5rem;
         }
 
         .btn-upload.btn-secondary {
-            background: rgba(255,255,255,0.1);
+            background: rgba(255,255,255,0.08);
             box-shadow: none;
             border: 1px solid rgba(255,255,255,0.1);
         }
         
         .btn-upload.btn-secondary:hover {
-            background: rgba(255,255,255,0.2);
-            transform: translateY(-2px);
+            background: rgba(255,255,255,0.15);
         }
 
         .btn-upload:hover {
@@ -230,15 +235,16 @@ const Library: React.FC<LibraryProps> = ({ onSelectBook }) => {
             transform: translateY(-2px);
         }
 
-        .btn-upload.loading {
-            opacity: 0.7;
-            cursor: wait;
-        }
-
         .books-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
             gap: 2rem;
+            animation: fadeIn 0.4s ease-out;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
         }
 
         .book-card {
@@ -247,20 +253,19 @@ const Library: React.FC<LibraryProps> = ({ onSelectBook }) => {
             border: 1px solid rgba(255,255,255,0.1);
             overflow: hidden;
             cursor: pointer;
-            transition: var(--transition-normal);
+            transition: all 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
             position: relative;
             aspect-ratio: 2/3;
             display: flex;
             flex-direction: column;
             box-shadow: 0 4px 6px rgba(0,0,0,0.2);
-            group: 'card'; 
         }
 
         .book-card:hover {
-            transform: scale(1.05);
+            transform: translateY(-5px);
             border-color: rgba(255,255,255,0.3);
-            box-shadow: 0 10px 20px rgba(0,0,0,0.4);
-            z-index: 1;
+            box-shadow: 0 12px 24px rgba(0,0,0,0.4);
+            z-index: 10;
         }
 
         .book-cover {
@@ -270,23 +275,23 @@ const Library: React.FC<LibraryProps> = ({ onSelectBook }) => {
             flex-direction: column;
             justify-content: center;
             align-items: center;
-            background: linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.01) 100%);
+            background: radial-gradient(circle at center, rgba(255,255,255,0.07) 0%, rgba(255,255,255,0.02) 100%);
             text-align: center;
             position: relative;
         }
         
-        /* Ensure text shadow for readability if appearing over images */
         .book-title-display {
             font-size: 1.1rem;
             font-weight: 700;
             line-height: 1.4;
-            max-height: 50%;
+            max-height: 3.5em; /* limit to 3 lines roughl */
             overflow: hidden;
             text-overflow: ellipsis;
             display: -webkit-box;
-            -webkit-line-clamp: 4;
+            -webkit-line-clamp: 3;
             -webkit-box-orient: vertical;
-            text-shadow: 0 2px 4px rgba(0,0,0,0.8);
+            text-shadow: 0 2px 8px rgba(0,0,0,0.6);
+            padding: 0 0.5rem;
         }
 
         .book-progress-overlay {
@@ -295,7 +300,7 @@ const Library: React.FC<LibraryProps> = ({ onSelectBook }) => {
             left: 0;
             right: 0;
             padding: 1rem;
-            background: linear-gradient(to top, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.6) 50%, transparent 100%);
+            background: linear-gradient(to top, rgba(15, 23, 42, 1) 10%, rgba(15, 23, 42, 0.8) 50%, transparent 100%);
         }
 
         .progress-info {
@@ -303,44 +308,50 @@ const Library: React.FC<LibraryProps> = ({ onSelectBook }) => {
             justify-content: space-between;
             margin-bottom: 0.5rem;
             font-size: 0.75rem;
-            color: rgba(255,255,255,0.8);
+            color: rgba(255,255,255,0.9);
             font-weight: 500;
-            text-shadow: 0 1px 2px rgba(0,0,0,0.8);
         }
         
         .time-left {
-            color: var(--color-accent);
+            color: var(--color-primary);
+            font-weight: 600;
         }
 
         .progress-bar {
             height: 4px;
-            background: rgba(255,255,255,0.2);
-            border-radius: 2px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 4px;
             overflow: hidden;
-            margin-bottom: 0.25rem;
         }
 
         .progress-fill {
             height: 100%;
             background: var(--color-primary);
+            border-radius: 4px;
+            box-shadow: 0 0 10px var(--color-primary);
         }
         
         .delete-btn {
             position: absolute;
             top: 0.5rem;
             right: 0.5rem;
-            background: rgba(0,0,0,0.5);
+            background: rgba(0,0,0,0.6);
+            backdrop-filter: blur(4px);
             color: white;
-            border: none;
+            border: 1px solid rgba(255,255,255,0.1);
             border-radius: 50%;
-            width: 24px;
-            height: 24px;
-            line-height: 24px;
-            text-align: center;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
             cursor: pointer;
             opacity: 0;
-            transition: opacity 0.2s;
-            z-index: 10;
+            transition: all 0.2s;
+            z-index: 20;
+            font-size: 1.25rem;
+            line-height: 0;
+            padding-bottom: 2px;
         }
         
         .book-card:hover .delete-btn {
@@ -348,16 +359,123 @@ const Library: React.FC<LibraryProps> = ({ onSelectBook }) => {
         }
         
         .delete-btn:hover {
-            background: red;
+            background: var(--color-accent);
+            border-color: var(--color-accent);
+            transform: scale(1.1);
         }
 
         .empty-state {
             grid-column: 1 / -1;
             text-align: center;
-            padding: 4rem;
+            padding: 5rem 2rem;
             color: var(--color-text-secondary);
             border: 2px dashed rgba(255,255,255,0.1);
             border-radius: var(--radius-lg);
+            background: rgba(255,255,255,0.02);
+        }
+
+        /* --- Mobile Overhaul --- */
+        @media (max-width: 640px) {
+            .library-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 1rem;
+            }
+            
+            .library-header h2 {
+                margin-left: 0.5rem;
+            }
+            
+            .action-buttons {
+                width: 100%;
+                display: grid !important;
+                grid-template-columns: 1fr 1fr;
+            }
+            
+            .btn-upload {
+                width: 100%;
+                padding: 1rem; /* More thumb friendly */
+            }
+
+            /* Switch Grid to List View */
+            .books-grid {
+                display: flex;
+                flex-direction: column;
+                gap: 1rem;
+            }
+            
+            .book-card {
+                aspect-ratio: auto;
+                flex-direction: row;
+                height: 110px;
+                padding: 0; /* Clear default padding if any */
+                transform: none !important; /* Disable hover lift on touch */
+            }
+            
+            .book-cover {
+                width: 80px;
+                flex: none;
+                padding: 0.5rem;
+                background: rgba(0,0,0,0.2);
+            }
+            
+            .book-title-display {
+                font-size: 0.75rem;
+                -webkit-line-clamp: 2;
+                max-height: 2.5em;
+                text-shadow: none;
+            }
+            
+            .book-progress-overlay {
+                position: relative;
+                top: auto;
+                bottom: auto;
+                left: auto;
+                right: auto;
+                background: none;
+                flex: 1;
+                padding: 1rem;
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+            }
+            
+             /* Since we changed structure, we need to adapt visually.
+                But wait, .book-cover *contains* the title logic in JSX. 
+                This CSS change assumes JSX structure mostly. 
+                In the current JSX, book-title-display is INSIDE book-cover.
+                We might need to adjust JSX to pull title OUT of cover for list view?
+                Or we just style book-cover to be the "Left Side" and put title there.
+             */
+             
+             .book-cover {
+                 /* Override flex centering to allow custom layout inside */
+                 justify-content: center;
+                 align-items: center;
+             }
+             
+             .book-progress-overlay {
+                /* We want this to be the "Right Side" content */
+                position: static; /* flow normally */
+                background: transparent;
+                padding: 1rem;
+                justify-content: center;
+                display: flex;
+                flex-direction: column;
+                flex: 1;
+             }
+             
+             /* Hide title inside cover if image exists? No cover usually text. */
+             
+             .delete-btn {
+                 opacity: 1; /* Always show on mobile */
+                 top: 50%;
+                 transform: translateY(-50%);
+                 right: 1rem;
+                 width: 36px;
+                 height: 36px;
+                 background: rgba(255,255,255,0.1);
+             }
         }
       `}</style>
         </div>
