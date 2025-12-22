@@ -299,22 +299,31 @@ const Library: React.FC<LibraryProps> = ({ onSelectBook }) => {
             bottom: 0;
             left: 0;
             right: 0;
-            padding: 1rem;
-            background: linear-gradient(to top, rgba(15, 23, 42, 1) 10%, rgba(15, 23, 42, 0.8) 50%, transparent 100%);
+            padding: 0.75rem 1rem;
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
         }
 
         .progress-info {
             display: flex;
             justify-content: space-between;
             margin-bottom: 0.5rem;
-            font-size: 0.75rem;
-            color: rgba(255,255,255,0.9);
-            font-weight: 500;
+            font-size: 0.8rem;
+            color: rgba(255,255,255,0.95);
+            font-weight: 600;
+        }
+        
+        .progress-percent {
+            background: rgba(255, 255, 255, 0.15);
+            padding: 0.15rem 0.5rem;
+            border-radius: 4px;
         }
         
         .time-left {
             color: var(--color-primary);
-            font-weight: 600;
+            font-weight: 700;
         }
 
         .progress-bar {
@@ -390,11 +399,19 @@ const Library: React.FC<LibraryProps> = ({ onSelectBook }) => {
                 width: 100%;
                 display: grid !important;
                 grid-template-columns: 1fr 1fr;
+                gap: 0.75rem !important;
             }
             
             .btn-upload {
                 width: 100%;
-                padding: 1rem; /* More thumb friendly */
+                padding: 1rem 0.75rem;
+                font-size: 0.9rem;
+                border-radius: var(--radius-md);
+                min-height: 52px;
+            }
+            
+            .btn-upload.btn-secondary {
+                background: rgba(255,255,255,0.1);
             }
 
             /* Switch Grid to List View */

@@ -457,9 +457,9 @@ function App() {
           <header className="app-header">
             <div className="header-content">
               <h1 className="app-title">
-                Speed Reader
+                ⚡ FlashRead
               </h1>
-              <p className="app-subtitle">Master the art of rapid reading.</p>
+              <p className="app-subtitle">Read faster. Learn more.</p>
             </div>
 
             <nav className="header-nav">
@@ -505,10 +505,17 @@ function App() {
                 font-size: 2.5rem;
                 font-weight: 800;
                 margin: 0 0 0.5rem 0;
-                background: linear-gradient(to right, #3b82f6, #8b5cf6);
+                background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 50%, #ec4899 100%);
+                background-size: 200% 200%;
+                animation: gradientShift 3s ease infinite;
                 -webkit-background-clip: text;
                 -webkit-text-fill-color: transparent;
                 letter-spacing: -0.03em;
+              }
+              
+              @keyframes gradientShift {
+                0%, 100% { background-position: 0% 50%; }
+                50% { background-position: 100% 50%; }
               }
               
               .app-subtitle {
@@ -785,7 +792,7 @@ function App() {
         transition: 'opacity 0.3s',
         opacity: (isFocusMode || view === 'reader') ? 0 : 1
       }}>
-        <p>&copy; {new Date().getFullYear()} Speed Reader App</p>
+        <p>&copy; {new Date().getFullYear()} FlashRead</p>
       </footer>
     </div>
   );

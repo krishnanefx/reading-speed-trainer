@@ -171,14 +171,15 @@ export const Stats: React.FC<StatsProps> = ({ onBack }) => {
 
                 .chart-container {
                     background: var(--color-surface);
-                    padding: 2rem;
+                    padding: 1.5rem;
                     border-radius: var(--radius-lg);
                     border: 1px solid rgba(255,255,255,0.1);
+                    overflow: hidden;
                 }
 
                 .chart-container h3 {
                     margin-top: 0;
-                    margin-bottom: 2rem;
+                    margin-bottom: 1.5rem;
                     font-size: 1.25rem;
                 }
 
@@ -186,12 +187,16 @@ export const Stats: React.FC<StatsProps> = ({ onBack }) => {
                     display: flex;
                     justify-content: space-between;
                     align-items: flex-end;
-                    height: 200px;
-                    gap: 1rem;
+                    height: 180px;
+                    gap: 0.5rem;
+                    width: 100%;
+                    overflow: hidden;
                 }
 
                 .bar-column {
                     flex: 1;
+                    min-width: 0;
+                    max-width: 60px;
                     display: flex;
                     flex-direction: column;
                     align-items: center;
@@ -201,7 +206,7 @@ export const Stats: React.FC<StatsProps> = ({ onBack }) => {
                 .bar-wrapper {
                     flex: 1;
                     width: 100%;
-                    width: 40px; 
+                    max-width: 40px;
                     background: rgba(255,255,255,0.05);
                     border-radius: var(--radius-sm);
                     position: relative;
@@ -222,6 +227,47 @@ export const Stats: React.FC<StatsProps> = ({ onBack }) => {
                     margin-top: 0.75rem;
                     font-size: 0.8rem;
                     color: var(--color-text-secondary);
+                }
+                
+                /* Mobile Stats Adjustments */
+                @media (max-width: 640px) {
+                    .stats-container {
+                        padding: 0.5rem;
+                    }
+                    
+                    .stats-grid {
+                        grid-template-columns: 1fr;
+                        gap: 1rem;
+                    }
+                    
+                    .stat-card {
+                        padding: 1.25rem;
+                    }
+                    
+                    .stat-value {
+                        font-size: 2rem;
+                    }
+                    
+                    .chart-container {
+                        padding: 1rem;
+                    }
+                    
+                    .bar-chart {
+                        height: 150px;
+                        gap: 0.25rem;
+                    }
+                    
+                    .bar-column {
+                        max-width: 40px;
+                    }
+                    
+                    .bar-wrapper {
+                        max-width: 30px;
+                    }
+                    
+                    .bar-label {
+                        font-size: 0.7rem;
+                    }
                 }
             `}</style>
         </div>
