@@ -259,7 +259,49 @@ function App() {
 
   const handleBackToLibrary = () => {
     setCurrentBook(null);
+    setView('library');
   };
+
+  // Browser History / Hash Integration
+  useEffect(() => {
+    const handleHashChange = () => {
+      const hash = window.location.hash.slice(1); // remove #
+
+      if (hash === 'reader') {
+        // If trying to access reader without a book, go back to library
+        if (!currentBook) {
+          window.location.hash = 'library';
+          setView('library');
+        } else {
+          setView('reader');
+        }
+      } else if (['settings', 'stats', 'gym', 'achievements'].includes(hash)) {
+        // @ts-ignore
+        setView(hash);
+      } else {
+        // Default to library
+        if (view !== 'library') setView('library');
+      }
+    };
+
+    // Listen for hash changes
+    window.addEventListener('hashchange', handleHashChange);
+
+    // Check initial hash on mount
+    // handleHashChange(); // Don't run immediately to allow hydration if needed, or safer:
+    // Actually, we want to allow deep linking to settings/stats/gym
+    // But for reader, we need a book. 
+
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, [currentBook]); // Dep on currentBook so we know if we can go to reader
+
+  // Sync view TO hash
+  useEffect(() => {
+    const currentHash = window.location.hash.slice(1);
+    if (currentHash !== view) {
+      window.location.hash = view;
+    }
+  }, [view]);
 
   const handleSeek = (val: number) => {
     // Pause before seeking to ensure stats are logged correctly for the segment read so far
