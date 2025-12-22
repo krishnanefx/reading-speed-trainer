@@ -120,7 +120,10 @@ export const Settings: React.FC<SettingsProps> = ({ onBack, updateTheme }) => {
                             <button
                                 key={t}
                                 className={`btn-theme ${defaultTheme === t ? 'active' : ''}`}
-                                onClick={() => setDefaultTheme(t)}
+                                onClick={() => {
+                                    setDefaultTheme(t);
+                                    document.documentElement.setAttribute('data-theme', t);
+                                }}
                                 data-theme={t}
                             >
                                 {t.charAt(0).toUpperCase() + t.slice(1)}
