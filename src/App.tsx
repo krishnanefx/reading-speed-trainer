@@ -41,6 +41,7 @@ function App() {
   const [wpm, setWpm] = useState(300);
   const [chunkSize, setChunkSize] = useState(1);
   const [font, setFont] = useState('mono');
+  const [fontSize, setFontSize] = useState(3); // 1-5 scale, 3 = medium
   const [isFocusMode, setIsFocusMode] = useState(false);
   const [bionicMode, setBionicMode] = useState(false);
   const [autoAccelerate, setAutoAccelerate] = useState(false);
@@ -645,7 +646,7 @@ function App() {
             transition: 'all 0.3s ease'
           }}>
             <div style={{ position: 'relative' }}>
-              <Reader word={currentDisplay} font={font} bionicMode={bionicMode} />
+              <Reader word={currentDisplay} font={font} bionicMode={bionicMode} fontSize={fontSize} />
 
               <button
                 onClick={() => setIsFocusMode(!isFocusMode)}
@@ -693,6 +694,8 @@ function App() {
                 onSeek={handleSeek}
                 font={font}
                 setFont={setFont}
+                fontSize={fontSize}
+                setFontSize={setFontSize}
                 timeLeft={timeLeftString}
               />
             )}
