@@ -12,6 +12,8 @@ interface ControlsProps {
   onSeek: (value: number) => void;
   font: string;
   setFont: (font: string) => void;
+  fontSize: number;
+  setFontSize: (size: number) => void;
   timeLeft: string;
 }
 
@@ -27,6 +29,8 @@ const Controls: React.FC<ControlsProps> = ({
   onSeek,
   font,
   setFont,
+  fontSize,
+  setFontSize,
   timeLeft
 }) => {
   return (
@@ -91,6 +95,24 @@ const Controls: React.FC<ControlsProps> = ({
                   style={{ textTransform: 'capitalize' }}
                 >
                   {f}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="control-row">
+          <div className="control-group full">
+            <label>Text Size</label>
+            <div className="chunk-options">
+              {[1, 2, 3, 4, 5].map(size => (
+                <button
+                  key={size}
+                  className={`btn-option ${fontSize === size ? 'active' : ''}`}
+                  onClick={() => setFontSize(size)}
+                  title={['Extra Small', 'Small', 'Medium', 'Large', 'Extra Large'][size - 1]}
+                >
+                  {['XS', 'S', 'M', 'L', 'XL'][size - 1]}
                 </button>
               ))}
             </div>
@@ -190,6 +212,10 @@ const Controls: React.FC<ControlsProps> = ({
         
         .half {
             flex: 1;
+        }
+        
+        .full {
+            width: 100%;
         }
 
         label {
