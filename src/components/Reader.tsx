@@ -61,15 +61,17 @@ const Reader: React.FC<ReaderProps> = ({ word, font, bionicMode = false }) => {
         }
 
         .word-container {
-          font-size: 5rem;
+          /* Responsive font size: minimum 3rem, preferred 15vw, max 8rem */
+          font-size: clamp(3rem, 15vw, 8rem);
           font-weight: 500;
           text-align: center;
           line-height: 1.2;
           z-index: 2;
-          padding: 2rem;
+          padding: 1rem;
           /* Ensure text handles wrapping if chunk size is large */
           max-width: 100%;
           word-break: break-word;
+          transition: font-size 0.2s ease;
         }
 
         .guide-lines {
@@ -85,8 +87,8 @@ const Reader: React.FC<ReaderProps> = ({ word, font, bionicMode = false }) => {
         }
 
         @media (max-width: 600px) {
-            .word-container {
-                font-size: 3.5rem;
+            .reader-display {
+                min-height: 250px;
             }
         }
       `}</style>
