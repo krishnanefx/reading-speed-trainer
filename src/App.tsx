@@ -228,7 +228,7 @@ function App() {
 
   const handleSelectBook = (book: Book) => {
     setCurrentBook(book);
-    setText(book.content);
+    setText(book.content || book.text || '');
 
     // Load book-specific settings if they exist
     if (book.wpm) setWpm(book.wpm);

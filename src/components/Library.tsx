@@ -71,9 +71,10 @@ const Library: React.FC<LibraryProps> = ({ onSelectBook }) => {
     };
 
     const getEstimatedTimeLeft = (book: Book) => {
-        if (!book.content) return '';
+        const textContent = book.content || book.text;
+        if (!textContent) return '';
         // totalWords is now a field on Book, but fall back to calculating if missing (legacy)
-        const totalWords = book.totalWords || book.content.trim().split(/\s+/).length;
+        const totalWords = book.totalWords || textContent.trim().split(/\s+/).length;
         const wordsLeft = Math.max(0, totalWords - (book.currentIndex || 0));
 
         if (wordsLeft === 0) return 'Finished';
