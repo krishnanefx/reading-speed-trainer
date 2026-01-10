@@ -14,6 +14,8 @@ import { getUserProgress, updateUserProgress, getSessions, getBooks, syncFromClo
 import type { Book } from './utils/db';
 import { checkNewAchievements } from './utils/achievements';
 import { supabase } from './lib/supabase';
+import { useNetwork } from './hooks/useNetwork';
+import { processSyncQueue } from './utils/db';
 
 function App() {
   // Navigation State
@@ -23,6 +25,19 @@ function App() {
   // User Session State
   const [sessionUser, setSessionUser] = useState<any>(null);
   const [gamificationProgress, setGamificationProgress] = useState<any>(null);
+
+  // Network State
+  const isOnline = useNetwork();
+
+  // Sync Queue Processing
+  useEffect(() => {
+    if (isOnline) {
+      processSyncQueue();
+      toast.success('Back online', { id: 'online-toast', duration: 2000, icon: '🌐' });
+    } else {
+      toast('Offline Mode', { id: 'offline-toast', icon: '📶' });
+    }
+  }, [isOnline]);
 
   // App Preferences (Default Settings)
   const [defaultWpm, setDefaultWpm] = useState(300);
@@ -233,7 +248,7 @@ function App() {
     <div className="container" style={{ transition: 'all 0.5s ease' }}>
       {/* Header only on main pages */}
       {view === 'library' && (
-        <Header onNavigate={handleNavigate} currentView={view} />
+        <Header onNavigate={handleNavigate} currentView={view} isOnline={isOnline} />
       )}
 
       {view === 'library' && (

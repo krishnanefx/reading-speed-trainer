@@ -4,8 +4,9 @@ import { supabase } from '../lib/supabase';
 const DB_NAME = 'ReadingTrainerDB';
 const BOOKS_STORE = 'books';
 const SESSIONS_STORE = 'sessions';
-const STORE_NAME = 'progress'; // Renamed from PROGRESS_STORE to STORE_NAME as per instruction
-const DB_VERSION = 2; // Incremented for sessions store, and now progress store
+const STORE_NAME = 'progress';
+const SYNC_QUEUE_STORE = 'sync_queue';
+const DB_VERSION = 3; // Incremented for sync queue
 
 export interface Book {
     id: string;
@@ -50,6 +51,16 @@ export interface UserProgress {
     bionicMode?: boolean;
 }
 
+
+type SyncPayload = UserProgress | Session | Book | string;
+
+export interface SyncItem {
+    id?: number; // Auto-incremented
+    type: 'UPDATE_PROGRESS' | 'SYNC_SESSION' | 'SYNC_BOOK' | 'DELETE_BOOK';
+    payload: SyncPayload;
+    timestamp: number;
+}
+
 export const initDB = async () => {
     return openDB(DB_NAME, DB_VERSION, {
         upgrade(db) { // Removed oldVersion, newVersion, transaction from signature
@@ -62,12 +73,26 @@ export const initDB = async () => {
             if (!db.objectStoreNames.contains(BOOKS_STORE)) {
                 db.createObjectStore(BOOKS_STORE, { keyPath: 'id' });
             }
+            if (!db.objectStoreNames.contains(SYNC_QUEUE_STORE)) {
+                db.createObjectStore(SYNC_QUEUE_STORE, { keyPath: 'id', autoIncrement: true });
+            }
         },
     });
 };
 
-// Cloud Sync Helpers
+// Queue Helper
+export const addToSyncQueue = async (type: SyncItem['type'], payload: SyncPayload) => {
+    const db = await initDB();
+    await db.put(SYNC_QUEUE_STORE, { type, payload, timestamp: Date.now() });
+};
+
+// Cloud Sync Helpers with Queue Strategy
 const syncProgressToCloud = async (progress: UserProgress) => {
+    if (!navigator.onLine) {
+        await addToSyncQueue('UPDATE_PROGRESS', progress);
+        return;
+    }
+
     const { data: { session } } = await supabase.auth.getSession();
     if (!session?.user) return;
 
@@ -85,10 +110,18 @@ const syncProgressToCloud = async (progress: UserProgress) => {
             last_read_date: progress.lastReadDate
         });
 
-    if (error) console.error('Cloud Sync Error (Progress):', error);
+    if (error) {
+        console.error('Cloud Sync Error (Progress):', error);
+        await addToSyncQueue('UPDATE_PROGRESS', progress);
+    }
 };
 
 const syncSessionToCloud = async (s: Session) => {
+    if (!navigator.onLine) {
+        await addToSyncQueue('SYNC_SESSION', s);
+        return;
+    }
+
     const { data: { session } } = await supabase.auth.getSession();
     if (!session?.user) return;
 
@@ -104,10 +137,18 @@ const syncSessionToCloud = async (s: Session) => {
             timestamp: s.timestamp
         });
 
-    if (error) console.error('Cloud Sync Error (Session):', error);
+    if (error) {
+        console.error('Cloud Sync Error (Session):', error);
+        await addToSyncQueue('SYNC_SESSION', s);
+    }
 };
 
 const syncBookToCloud = async (book: Book) => {
+    if (!navigator.onLine) {
+        await addToSyncQueue('SYNC_BOOK', book);
+        return;
+    }
+
     const { data: { session } } = await supabase.auth.getSession();
     if (!session?.user) return;
 
@@ -126,15 +167,26 @@ const syncBookToCloud = async (book: Book) => {
             cover: book.cover
         });
 
-    if (error) console.error('Cloud Sync Error (Book):', error);
+    if (error) {
+        console.error('Cloud Sync Error (Book):', error);
+        await addToSyncQueue('SYNC_BOOK', book);
+    }
 };
 
 const deleteBookFromCloud = async (id: string) => {
+    if (!navigator.onLine) {
+        await addToSyncQueue('DELETE_BOOK', id);
+        return;
+    }
+
     const { data: { session } } = await supabase.auth.getSession();
     if (!session?.user) return;
 
     const { error } = await supabase.from('books').delete().eq('id', id);
-    if (error) console.error('Cloud Sync Error (Delete Book):', error);
+    if (error) {
+        console.error('Cloud Sync Error (Delete Book):', error);
+        await addToSyncQueue('DELETE_BOOK', id);
+    }
 };
 
 // Main Sync Function (Pull from Cloud)
@@ -228,6 +280,58 @@ export const syncFromCloud = async () => {
     return true;
 };
 
+export const processSyncQueue = async () => {
+    if (!navigator.onLine) return;
+
+    const db = await initDB();
+    const queue = await db.getAll(SYNC_QUEUE_STORE);
+    if (queue.length === 0) return;
+
+    console.log(`Processing ${queue.length} offline items...`);
+
+    // Process one by one. If success, connect to delete.
+    // If fail, keep it? Or move to back? 
+    // Simple approach: Try all, delete success ones.
+
+    for (const item of queue) {
+        let success = false;
+        try {
+            if (item.type === 'UPDATE_PROGRESS') {
+                await syncProgressToCloud(item.payload);
+                // Note: syncProgressToCloud adds back to queue on error. 
+                // Ideally we call the internal supabase logic directly to avoid infinite loop of re-queueing immediately 
+                // but checking navigator.onLine inside might prevent re-queueing if we are strictly online.
+                // However, separating "sync" from "queue" logic would be cleaner. 
+                // For now, let's assume sync functions re-queue only if error, 
+                // so if we succeed here, good. 
+                // Actually, the sync functions *do* re-queue on error. 
+                // So we should delete *this* item first, then call sync. 
+                // If sync fails, it will add a *new* item. 
+                // This is acceptable for now.
+                success = true; // If syncProgressToCloud throws, we catch. If it returns (even if error inside logged), it might have re-queued.
+            } else if (item.type === 'SYNC_SESSION') {
+                await syncSessionToCloud(item.payload);
+                success = true;
+            } else if (item.type === 'SYNC_BOOK') {
+                await syncBookToCloud(item.payload);
+                success = true;
+            } else if (item.type === 'DELETE_BOOK') {
+                await deleteBookFromCloud(item.payload);
+                success = true;
+            }
+        } catch (e) {
+            console.error('Error processing sync item:', e);
+        }
+
+        if (success) {
+            // We blindly delete the OLD item. 
+            // If the sync function failed and re-queued, it created a NEW item with new timestamp.
+            // So we can safely remove this old one.
+            if (item.id) await db.delete(SYNC_QUEUE_STORE, item.id);
+        }
+    }
+};
+
 export const saveBook = async (book: Book) => {
     const db = await initDB();
     const val = {
@@ -241,6 +345,7 @@ export const saveBook = async (book: Book) => {
 export const getBooks = async (): Promise<Book[]> => {
     const db = await initDB();
     const books = await db.getAll(BOOKS_STORE);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return books.map((b: any) => ({
         ...b,
         content: b.content || b.text || '',
