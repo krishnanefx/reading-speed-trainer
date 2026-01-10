@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useState } from 'react';
+import ShortcutsHelp from './ShortcutsHelp';
 
 interface ControlsProps {
   isPlaying: boolean;
@@ -33,12 +34,21 @@ const ControlsComponent: React.FC<ControlsProps> = ({
   setFontSize,
   timeLeft
 }) => {
+  const [showShortcuts, setShowShortcuts] = useState(false);
+
   return (
     <div className="controls-container">
+      <ShortcutsHelp isOpen={showShortcuts} onClose={() => setShowShortcuts(false)} />
       <div className="main-controls">
         <button className="btn-icon" onClick={onReset} title="Reset">
           <svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+          </svg>
+        </button>
+
+        <button className="btn-icon" onClick={() => setShowShortcuts(true)} title="Keyboard Shortcuts">
+          <svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
           </svg>
         </button>
 

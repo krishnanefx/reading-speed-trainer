@@ -53,12 +53,21 @@ const ReaderView: React.FC<ReaderViewProps> = ({
     // Session Tracking
     const sessionStartTimeRef = useRef<number | null>(null);
     const wordsReadStartRef = useRef<number>(0);
+    // Refs for stable Event Listeners
     const latestIndexRef = useRef(currentIndex);
+    const wordsRef = useRef(words);
+    const chunkSizeRef = useRef(chunkSize);
+    const wpmRef = useRef(wpm);
+    const isFocusModeRef = useRef(isFocusMode);
 
-    // Sync index ref
+    // Sync refs
     useEffect(() => {
         latestIndexRef.current = currentIndex;
-    }, [currentIndex]);
+        wordsRef.current = words;
+        chunkSizeRef.current = chunkSize;
+        wpmRef.current = wpm;
+        isFocusModeRef.current = isFocusMode;
+    }, [currentIndex, words, chunkSize, wpm, isFocusMode]);
 
     // Initial Seek to saved position
     useEffect(() => {
@@ -139,39 +148,53 @@ const ReaderView: React.FC<ReaderViewProps> = ({
         }
     }, [currentIndex, words.length, book.id, wpm, saveProgressDebounced]);
 
-    // Keyboard Shortcuts
+    // Keyboard Shortcuts (Optimized)
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
             if (e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLInputElement) return;
 
+            const currentIdx = latestIndexRef.current;
+            const currentWords = wordsRef.current;
+            const currentChunkSize = chunkSizeRef.current;
+            const currentWpm = wpmRef.current;
+            const focusMode = isFocusModeRef.current;
+
             switch (e.code) {
                 case 'Space':
                     e.preventDefault();
-                    togglePlay();
+                    togglePlay(); // togglePlay is stable
                     break;
                 case 'ArrowUp':
                     e.preventDefault();
-                    setWpm(prev => Math.min(prev + 10, 2000));
+                    setWpm(Math.min(currentWpm + 10, 2000));
                     break;
                 case 'ArrowDown':
                     e.preventDefault();
-                    setWpm(prev => Math.max(prev - 10, 60));
+                    setWpm(Math.max(currentWpm - 10, 60));
                     break;
                 case 'ArrowRight':
                     e.preventDefault();
-                    seek(Math.min(currentIndex + 10 * chunkSize, words.length - 1));
+                    seek(Math.min(currentIdx + 10 * currentChunkSize, currentWords.length - 1));
                     break;
                 case 'ArrowLeft':
                     e.preventDefault();
-                    seek(Math.max(currentIndex - 10 * chunkSize, 0));
+                    seek(Math.max(currentIdx - 10 * currentChunkSize, 0));
+                    break;
+                case 'Home':
+                    e.preventDefault();
+                    seek(0);
+                    break;
+                case 'End':
+                    e.preventDefault();
+                    seek(currentWords.length - 1);
                     break;
                 case 'KeyF':
                     e.preventDefault();
-                    setIsFocusMode(prev => !prev);
+                    setIsFocusMode(!focusMode);
                     break;
                 case 'Escape':
                     e.preventDefault();
-                    if (isFocusMode) setIsFocusMode(false);
+                    if (focusMode) setIsFocusMode(false);
                     else onBack();
                     break;
             }
@@ -179,7 +202,7 @@ const ReaderView: React.FC<ReaderViewProps> = ({
 
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [togglePlay, currentIndex, words.length, chunkSize, isFocusMode, onBack, seek]);
+    }, [togglePlay, seek, onBack]); // Minimized dependencies
 
     // Display Helpers
     const wordsLeft = Math.max(0, words.length - currentIndex);
