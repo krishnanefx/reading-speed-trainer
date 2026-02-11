@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getBookCount, getLibraryBookCovers, getLibraryBooks, rebuildLibraryBookIndex, saveBook, deleteBook } from '../utils/db';
 import type { Book, LibraryBook } from '../utils/db';
 import { parseEpub } from '../utils/fileHelpers';
@@ -69,6 +69,8 @@ const Library: React.FC<LibraryProps> = ({ onSelectBook }) => {
     const [isIndexing, setIsIndexing] = useState(false);
     const [coverByBookId, setCoverByBookId] = useState<Record<string, string>>({});
     const [importStatus, setImportStatus] = useState<string>('');
+    const [visibleCount, setVisibleCount] = useState(42);
+    const loadMoreRef = useRef<HTMLDivElement | null>(null);
 
     useEffect(() => {
         void loadBooks(true);
@@ -140,6 +142,25 @@ const Library: React.FC<LibraryProps> = ({ onSelectBook }) => {
             cancelled = true;
         };
     }, [books]);
+
+    useEffect(() => {
+        setVisibleCount(42);
+    }, [books.length]);
+
+    useEffect(() => {
+        if (visibleCount >= books.length) return;
+        const sentinel = loadMoreRef.current;
+        if (!sentinel) return;
+
+        const observer = new IntersectionObserver((entries) => {
+            if (entries.some((entry) => entry.isIntersecting)) {
+                setVisibleCount((prev) => Math.min(prev + 24, books.length));
+            }
+        }, { rootMargin: '300px 0px' });
+
+        observer.observe(sentinel);
+        return () => observer.disconnect();
+    }, [visibleCount, books.length]);
 
     const pause = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
@@ -275,6 +296,8 @@ const Library: React.FC<LibraryProps> = ({ onSelectBook }) => {
         return result;
     }, [books, getEstimatedTimeLeft]);
 
+    const visibleBooks = useMemo(() => books.slice(0, visibleCount), [books, visibleCount]);
+
     return (
         <div className="library-container">
             <div className="library-header">
@@ -316,7 +339,7 @@ const Library: React.FC<LibraryProps> = ({ onSelectBook }) => {
                         ))}
                     </>
                 )}
-                {books.map(book => (
+                {visibleBooks.map(book => (
                     <BookCard
                         key={book.id}
                         book={book}
@@ -337,6 +360,9 @@ const Library: React.FC<LibraryProps> = ({ onSelectBook }) => {
                     <div className="empty-state">
                         <p>No books yet. Add one to get started!</p>
                     </div>
+                )}
+                {visibleCount < books.length && (
+                    <div ref={loadMoreRef} className="books-load-more" aria-hidden="true" />
                 )}
             </div>
             {bookToDelete && (

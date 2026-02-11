@@ -285,6 +285,11 @@
   background: rgba(255, 255, 255, 0.02);
 }
 
+.books-load-more {
+  grid-column: 1 / -1;
+  height: 1px;
+}
+
 .book-info-mobile {
   display: none;
 }
