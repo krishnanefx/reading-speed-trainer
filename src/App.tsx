@@ -13,7 +13,7 @@ const Achievements = lazy(() => import('./components/Achievements').then(m => ({
 import { getUserProgress, updateUserProgress, getSessions, getBooks, syncFromCloud } from './utils/db';
 import type { Book } from './utils/db';
 import { checkNewAchievements } from './utils/achievements';
-import { supabase } from './lib/supabase';
+import { isCloudSyncEnabled, supabase } from './lib/supabase';
 import { useNetwork } from './hooks/useNetwork';
 import { processSyncQueue } from './utils/db';
 
@@ -52,6 +52,11 @@ function App() {
 
   // Auth Session
   useEffect(() => {
+    if (!isCloudSyncEnabled || !supabase) {
+      toast('Cloud sync disabled: local-only mode', { id: 'local-only-toast', duration: 3500 });
+      return;
+    }
+
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSessionUser(session?.user ?? null);
     });
@@ -248,7 +253,12 @@ function App() {
     <div className="container" style={{ transition: 'all 0.5s ease' }}>
       {/* Header only on main pages */}
       {view === 'library' && (
-        <Header onNavigate={handleNavigate} currentView={view} isOnline={isOnline} />
+        <Header
+          onNavigate={handleNavigate}
+          currentView={view}
+          isOnline={isOnline}
+          isCloudSyncEnabled={isCloudSyncEnabled}
+        />
       )}
 
       {view === 'library' && (

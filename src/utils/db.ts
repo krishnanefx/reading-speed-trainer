@@ -1,5 +1,5 @@
 import { openDB } from 'idb';
-import { supabase } from '../lib/supabase';
+import { isCloudSyncEnabled, supabase } from '../lib/supabase';
 
 const DB_NAME = 'ReadingTrainerDB';
 const BOOKS_STORE = 'books';
@@ -7,6 +7,7 @@ const SESSIONS_STORE = 'sessions';
 const STORE_NAME = 'progress';
 const SYNC_QUEUE_STORE = 'sync_queue';
 const DB_VERSION = 3; // Incremented for sync queue
+const MAX_IMPORT_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
 
 export interface Book {
     id: string;
@@ -61,6 +62,106 @@ export interface SyncItem {
     timestamp: number;
 }
 
+const isCloudAvailable = () => Boolean(isCloudSyncEnabled && supabase);
+
+const getSessionUserId = async (): Promise<string | null> => {
+    if (!isCloudAvailable()) return null;
+    const { data: { session } } = await supabase!.auth.getSession();
+    return session?.user?.id ?? null;
+};
+
+const dedupeSyncQueue = (items: SyncItem[]): SyncItem[] => {
+    const ordered = [...items].sort((a, b) => {
+        const aId = typeof a.id === 'number' ? a.id : 0;
+        const bId = typeof b.id === 'number' ? b.id : 0;
+        return a.timestamp - b.timestamp || aId - bId;
+    });
+
+    const byKey = new Map<string, SyncItem>();
+    for (const item of ordered) {
+        let key = `${item.type}:${item.timestamp}`;
+        if (item.type === 'UPDATE_PROGRESS') key = 'UPDATE_PROGRESS:default';
+        if (item.type === 'SYNC_BOOK') key = `SYNC_BOOK:${(item.payload as Book).id}`;
+        if (item.type === 'DELETE_BOOK') key = `DELETE_BOOK:${item.payload as string}`;
+        if (item.type === 'SYNC_SESSION') key = `SYNC_SESSION:${(item.payload as Session).id}`;
+        byKey.set(key, item);
+    }
+
+    return [...byKey.values()].sort((a, b) => {
+        const aId = typeof a.id === 'number' ? a.id : 0;
+        const bId = typeof b.id === 'number' ? b.id : 0;
+        return a.timestamp - b.timestamp || aId - bId;
+    });
+};
+
+const toSafeNumber = (value: unknown, fallback: number, min = Number.NEGATIVE_INFINITY, max = Number.POSITIVE_INFINITY) => {
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed)) return fallback;
+    return Math.min(max, Math.max(min, parsed));
+};
+
+const sanitizeBook = (book: Partial<Book>): Book => {
+    const id = typeof book.id === 'string' && book.id.trim() ? book.id : crypto.randomUUID();
+    const content = String(book.content ?? book.text ?? '');
+    const totalWords = content.trim() ? content.trim().split(/\s+/).length : 0;
+    return {
+        id,
+        title: String(book.title ?? 'Untitled'),
+        content,
+        progress: toSafeNumber(book.progress, 0, 0, 1),
+        totalWords: toSafeNumber(book.totalWords, totalWords, 0),
+        cover: typeof book.cover === 'string' ? book.cover : undefined,
+        currentIndex: toSafeNumber(book.currentIndex, 0, 0),
+        lastRead: toSafeNumber(book.lastRead, Date.now(), 0),
+        wpm: toSafeNumber(book.wpm, 300, 60, 2000),
+    };
+};
+
+const sanitizeSession = (session: Partial<Session>): Session => ({
+    id: typeof session.id === 'string' && session.id.trim() ? session.id : crypto.randomUUID(),
+    bookId: String(session.bookId ?? ''),
+    timestamp: toSafeNumber(session.timestamp, Date.now(), 0),
+    durationSeconds: toSafeNumber(session.durationSeconds, 0, 0),
+    wordsRead: toSafeNumber(session.wordsRead, 0, 0),
+    averageWpm: toSafeNumber(session.averageWpm, 0, 0, 3000),
+});
+
+const toDateKey = (value: string | null | undefined): string => {
+    if (!value) return '';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '';
+    return date.toISOString().split('T')[0];
+};
+
+const mergeProgress = (local: UserProgress, cloud: UserProgress): UserProgress => {
+    const localDate = toDateKey(local.lastReadDate);
+    const cloudDate = toDateKey(cloud.lastReadDate);
+    const localDateValue = localDate ? Date.parse(`${localDate}T00:00:00.000Z`) : 0;
+    const cloudDateValue = cloudDate ? Date.parse(`${cloudDate}T00:00:00.000Z`) : 0;
+    const localIsNewer = localDateValue > cloudDateValue || local.totalWordsRead > cloud.totalWordsRead;
+
+    return {
+        ...cloud,
+        ...local,
+        id: 'default',
+        currentStreak: Math.max(local.currentStreak, cloud.currentStreak),
+        longestStreak: Math.max(local.longestStreak, cloud.longestStreak),
+        totalWordsRead: Math.max(local.totalWordsRead, cloud.totalWordsRead),
+        peakWpm: Math.max(local.peakWpm, cloud.peakWpm),
+        dailyGoalMetCount: Math.max(local.dailyGoalMetCount, cloud.dailyGoalMetCount),
+        unlockedAchievements: Array.from(new Set([...(cloud.unlockedAchievements || []), ...(local.unlockedAchievements || [])])),
+        lastReadDate: localIsNewer ? (localDate || cloudDate) : (cloudDate || localDate),
+        dailyGoal: local.dailyGoal || cloud.dailyGoal,
+        gymBestTime: local.gymBestTime ?? cloud.gymBestTime ?? null,
+        defaultWpm: local.defaultWpm ?? cloud.defaultWpm,
+        defaultChunkSize: local.defaultChunkSize ?? cloud.defaultChunkSize,
+        defaultFont: local.defaultFont ?? cloud.defaultFont,
+        theme: local.theme ?? cloud.theme,
+        autoAccelerate: local.autoAccelerate ?? cloud.autoAccelerate,
+        bionicMode: local.bionicMode ?? cloud.bionicMode,
+    };
+};
+
 export const initDB = async () => {
     return openDB(DB_NAME, DB_VERSION, {
         upgrade(db) { // Removed oldVersion, newVersion, transaction from signature
@@ -87,19 +188,22 @@ export const addToSyncQueue = async (type: SyncItem['type'], payload: SyncPayloa
 };
 
 // Cloud Sync Helpers with Queue Strategy
-const syncProgressToCloud = async (progress: UserProgress) => {
+const syncProgressToCloud = async (progress: UserProgress, queueOnFailure = true): Promise<boolean> => {
+    if (!isCloudAvailable()) return false;
     if (!navigator.onLine) {
-        await addToSyncQueue('UPDATE_PROGRESS', progress);
-        return;
+        if (queueOnFailure) {
+            await addToSyncQueue('UPDATE_PROGRESS', progress);
+        }
+        return false;
     }
 
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session?.user) return;
+    const userId = await getSessionUserId();
+    if (!userId) return false;
 
-    const { error } = await supabase
+    const { error } = await supabase!
         .from('user_progress')
         .upsert({
-            user_id: session.user.id,
+            user_id: userId,
             current_streak: progress.currentStreak,
             longest_streak: progress.longestStreak,
             total_words_read: progress.totalWordsRead,
@@ -112,24 +216,32 @@ const syncProgressToCloud = async (progress: UserProgress) => {
 
     if (error) {
         console.error('Cloud Sync Error (Progress):', error);
-        await addToSyncQueue('UPDATE_PROGRESS', progress);
+        if (queueOnFailure) {
+            await addToSyncQueue('UPDATE_PROGRESS', progress);
+        }
+        return false;
     }
+
+    return true;
 };
 
-const syncSessionToCloud = async (s: Session) => {
+const syncSessionToCloud = async (s: Session, queueOnFailure = true): Promise<boolean> => {
+    if (!isCloudAvailable()) return false;
     if (!navigator.onLine) {
-        await addToSyncQueue('SYNC_SESSION', s);
-        return;
+        if (queueOnFailure) {
+            await addToSyncQueue('SYNC_SESSION', s);
+        }
+        return false;
     }
 
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session?.user) return;
+    const userId = await getSessionUserId();
+    if (!userId) return false;
 
-    const { error } = await supabase
+    const { error } = await supabase!
         .from('reading_sessions')
         .upsert({
             id: s.id,
-            user_id: session.user.id,
+            user_id: userId,
             book_id: s.bookId,
             duration_seconds: s.durationSeconds,
             words_read: s.wordsRead,
@@ -139,24 +251,32 @@ const syncSessionToCloud = async (s: Session) => {
 
     if (error) {
         console.error('Cloud Sync Error (Session):', error);
-        await addToSyncQueue('SYNC_SESSION', s);
+        if (queueOnFailure) {
+            await addToSyncQueue('SYNC_SESSION', s);
+        }
+        return false;
     }
+
+    return true;
 };
 
-const syncBookToCloud = async (book: Book) => {
+const syncBookToCloud = async (book: Book, queueOnFailure = true): Promise<boolean> => {
+    if (!isCloudAvailable()) return false;
     if (!navigator.onLine) {
-        await addToSyncQueue('SYNC_BOOK', book);
-        return;
+        if (queueOnFailure) {
+            await addToSyncQueue('SYNC_BOOK', book);
+        }
+        return false;
     }
 
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session?.user) return;
+    const userId = await getSessionUserId();
+    if (!userId) return false;
 
-    const { error } = await supabase
+    const { error } = await supabase!
         .from('books')
         .upsert({
             id: book.id,
-            user_id: session.user.id,
+            user_id: userId,
             title: book.title,
             content: book.content,
             progress: book.progress,
@@ -169,41 +289,57 @@ const syncBookToCloud = async (book: Book) => {
 
     if (error) {
         console.error('Cloud Sync Error (Book):', error);
-        await addToSyncQueue('SYNC_BOOK', book);
+        if (queueOnFailure) {
+            await addToSyncQueue('SYNC_BOOK', book);
+        }
+        return false;
     }
+
+    return true;
 };
 
-const deleteBookFromCloud = async (id: string) => {
+const deleteBookFromCloud = async (id: string, queueOnFailure = true): Promise<boolean> => {
+    if (!isCloudAvailable()) return false;
     if (!navigator.onLine) {
-        await addToSyncQueue('DELETE_BOOK', id);
-        return;
+        if (queueOnFailure) {
+            await addToSyncQueue('DELETE_BOOK', id);
+        }
+        return false;
     }
 
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session?.user) return;
+    const userId = await getSessionUserId();
+    if (!userId) return false;
 
-    const { error } = await supabase.from('books').delete().eq('id', id);
+    const { error } = await supabase!.from('books').delete().eq('id', id).eq('user_id', userId);
     if (error) {
         console.error('Cloud Sync Error (Delete Book):', error);
-        await addToSyncQueue('DELETE_BOOK', id);
+        if (queueOnFailure) {
+            await addToSyncQueue('DELETE_BOOK', id);
+        }
+        return false;
     }
+    return true;
 };
 
 // Main Sync Function (Pull from Cloud)
 export const syncFromCloud = async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session?.user) return;
+    if (!isCloudAvailable()) return false;
+    const userId = await getSessionUserId();
+    if (!userId) return false;
 
     // 1. Get Progress
-    const { data: cloudProgress } = await supabase
+    const { data: cloudProgress, error: progressError } = await supabase!
         .from('user_progress')
         .select('*')
-        .eq('user_id', session.user.id)
+        .eq('user_id', userId)
         .single();
 
-    if (cloudProgress) {
+    if (progressError) {
+        console.error('Cloud Sync Error (Pull Progress):', progressError);
+    } else if (cloudProgress) {
+        const localProgress = await getUserProgress();
         // Map back to local format
-        const localProgress: UserProgress = {
+        const mappedCloudProgress: UserProgress = {
             id: 'default',
             currentStreak: cloudProgress.current_streak,
             longestStreak: cloudProgress.longest_streak,
@@ -221,23 +357,26 @@ export const syncFromCloud = async () => {
             autoAccelerate: cloudProgress.auto_accelerate,
             bionicMode: cloudProgress.bionic_mode
         };
-        // Update local without triggering another sync loop ideally,
-        // but updateUserProgress is fine as it's an upsert.
-        await updateUserProgress(localProgress, false); // Add flag to skip upload
+        const merged = mergeProgress(localProgress, mappedCloudProgress);
+        await updateUserProgress(merged, false);
+        await syncProgressToCloud(merged, false);
     }
 
     // 2. Get Books
-    const { data: cloudBooks } = await supabase
+    const { data: cloudBooks, error: booksError } = await supabase!
         .from('books')
         .select('*')
-        .eq('user_id', session.user.id);
+        .eq('user_id', userId);
 
-    if (cloudBooks && cloudBooks.length > 0) {
+    if (booksError) {
+        console.error('Cloud Sync Error (Pull Books):', booksError);
+    } else if (cloudBooks) {
         const db = await initDB();
+        const localBooks = await getBooks();
+        const localById = new Map(localBooks.map((book) => [book.id, book]));
         const tx = db.transaction(BOOKS_STORE, 'readwrite');
+
         for (const cb of cloudBooks) {
-            // Only overwrite if cloud is newer or local doesn't exist?
-            // For simplicity, cloud is truth.
             const localBook: Book = {
                 id: cb.id,
                 title: cb.title,
@@ -249,19 +388,42 @@ export const syncFromCloud = async () => {
                 wpm: cb.wpm,
                 cover: cb.cover
             };
-            await tx.store.put(localBook);
+            const existing = localById.get(localBook.id);
+            const localTs = existing?.lastRead || 0;
+            const cloudTs = localBook.lastRead || 0;
+            const keepLocal = Boolean(
+                existing && (localTs > cloudTs || (localTs === cloudTs && (existing.progress || 0) >= (localBook.progress || 0)))
+            );
+
+            if (keepLocal) {
+                await tx.store.put(existing!);
+                await syncBookToCloud(existing!, false);
+            } else {
+                await tx.store.put(sanitizeBook(localBook));
+            }
+        }
+
+        const cloudIds = new Set(cloudBooks.map((book) => String(book.id)));
+        for (const localBook of localBooks) {
+            if (!cloudIds.has(localBook.id)) {
+                await syncBookToCloud(localBook, false);
+            }
         }
         await tx.done;
     }
 
     // 3. Get Sessions (Fix for empty sessions table)
-    const { data: cloudSessions } = await supabase
+    const { data: cloudSessions, error: sessionsError } = await supabase!
         .from('reading_sessions')
         .select('*')
-        .eq('user_id', session.user.id);
+        .eq('user_id', userId);
 
-    if (cloudSessions && cloudSessions.length > 0) {
+    if (sessionsError) {
+        console.error('Cloud Sync Error (Pull Sessions):', sessionsError);
+    } else if (cloudSessions) {
         const db = await initDB();
+        const localSessions = await getSessions();
+        const localIds = new Set(localSessions.map((session) => session.id));
         const tx = db.transaction(SESSIONS_STORE, 'readwrite');
         for (const cs of cloudSessions) {
             const localSession: Session = {
@@ -272,7 +434,13 @@ export const syncFromCloud = async () => {
                 averageWpm: cs.average_wpm,
                 timestamp: cs.timestamp
             };
-            await tx.store.put(localSession);
+            await tx.store.put(sanitizeSession(localSession));
+        }
+        const cloudIds = new Set(cloudSessions.map((session) => String(session.id)));
+        for (const localSession of localSessions) {
+            if (!cloudIds.has(localSession.id) && localIds.has(localSession.id)) {
+                await syncSessionToCloud(localSession, false);
+            }
         }
         await tx.done;
     }
@@ -281,52 +449,31 @@ export const syncFromCloud = async () => {
 };
 
 export const processSyncQueue = async () => {
-    if (!navigator.onLine) return;
+    if (!isCloudAvailable() || !navigator.onLine) return;
 
     const db = await initDB();
-    const queue = await db.getAll(SYNC_QUEUE_STORE);
+    const queue = dedupeSyncQueue(await db.getAll(SYNC_QUEUE_STORE));
     if (queue.length === 0) return;
 
     console.log(`Processing ${queue.length} offline items...`);
-
-    // Process one by one. If success, connect to delete.
-    // If fail, keep it? Or move to back? 
-    // Simple approach: Try all, delete success ones.
 
     for (const item of queue) {
         let success = false;
         try {
             if (item.type === 'UPDATE_PROGRESS') {
-                await syncProgressToCloud(item.payload);
-                // Note: syncProgressToCloud adds back to queue on error. 
-                // Ideally we call the internal supabase logic directly to avoid infinite loop of re-queueing immediately 
-                // but checking navigator.onLine inside might prevent re-queueing if we are strictly online.
-                // However, separating "sync" from "queue" logic would be cleaner. 
-                // For now, let's assume sync functions re-queue only if error, 
-                // so if we succeed here, good. 
-                // Actually, the sync functions *do* re-queue on error. 
-                // So we should delete *this* item first, then call sync. 
-                // If sync fails, it will add a *new* item. 
-                // This is acceptable for now.
-                success = true; // If syncProgressToCloud throws, we catch. If it returns (even if error inside logged), it might have re-queued.
+                success = await syncProgressToCloud(item.payload as UserProgress, false);
             } else if (item.type === 'SYNC_SESSION') {
-                await syncSessionToCloud(item.payload);
-                success = true;
+                success = await syncSessionToCloud(item.payload as Session, false);
             } else if (item.type === 'SYNC_BOOK') {
-                await syncBookToCloud(item.payload);
-                success = true;
+                success = await syncBookToCloud(item.payload as Book, false);
             } else if (item.type === 'DELETE_BOOK') {
-                await deleteBookFromCloud(item.payload);
-                success = true;
+                success = await deleteBookFromCloud(item.payload as string, false);
             }
         } catch (e) {
             console.error('Error processing sync item:', e);
         }
 
         if (success) {
-            // We blindly delete the OLD item. 
-            // If the sync function failed and re-queued, it created a NEW item with new timestamp.
-            // So we can safely remove this old one.
             if (item.id) await db.delete(SYNC_QUEUE_STORE, item.id);
         }
     }
@@ -334,12 +481,9 @@ export const processSyncQueue = async () => {
 
 export const saveBook = async (book: Book) => {
     const db = await initDB();
-    const val = {
-        ...book,
-        content: book.content || book.text || '',
-    };
+    const val = sanitizeBook(book);
     await db.put(BOOKS_STORE, val);
-    syncBookToCloud(val);
+    await syncBookToCloud(val);
 };
 
 export const getBooks = async (): Promise<Book[]> => {
@@ -372,22 +516,23 @@ export const updateBookProgress = async (id: string, progress: number, currentIn
         book.progress = progress;
         if (currentIndex !== undefined) book.currentIndex = currentIndex;
         book.lastRead = Date.now();
-        if (wpm) book.wpm = wpm;
+        if (wpm) book.wpm = toSafeNumber(wpm, book.wpm || 300, 60, 2000);
         await db.put(BOOKS_STORE, book);
-        syncBookToCloud(book);
+        await syncBookToCloud(sanitizeBook(book));
     }
 };
 
 export const deleteBook = async (id: string) => {
     const db = await initDB();
     await db.delete(BOOKS_STORE, id);
-    deleteBookFromCloud(id);
+    await deleteBookFromCloud(id);
 };
 
 export const logSession = async (session: Session) => {
     const db = await initDB();
-    await db.put(SESSIONS_STORE, session);
-    syncSessionToCloud(session);
+    const safeSession = sanitizeSession(session);
+    await db.put(SESSIONS_STORE, safeSession);
+    await syncSessionToCloud(safeSession);
 };
 
 export const getSessions = async (): Promise<Session[]> => {
@@ -425,10 +570,14 @@ export const exportUserData = async (): Promise<string> => {
 
 export const importUserData = async (jsonString: string): Promise<boolean> => {
     try {
+        if (jsonString.length > MAX_IMPORT_SIZE_BYTES) {
+            throw new Error('Import file is too large.');
+        }
+
         const data = JSON.parse(jsonString);
 
         // Basic validation
-        if (!data.progress || !data.sessions || !data.books) {
+        if (!data || typeof data !== 'object' || !data.progress || !Array.isArray(data.sessions) || !Array.isArray(data.books)) {
             throw new Error('Invalid data format');
         }
 
@@ -436,21 +585,37 @@ export const importUserData = async (jsonString: string): Promise<boolean> => {
         // For simplicity: Overwrite/Merge logic
         // We will overwrite progress, merge sessions/books (deduplicating by ID)
 
-        await updateUserProgress(data.progress);
+        const progressUpdate = data.progress as Partial<UserProgress>;
+        await updateUserProgress({
+            ...DEFAULT_PROGRESS,
+            ...progressUpdate,
+            id: 'default',
+            currentStreak: toSafeNumber(progressUpdate.currentStreak, 0, 0),
+            longestStreak: toSafeNumber(progressUpdate.longestStreak, 0, 0),
+            totalWordsRead: toSafeNumber(progressUpdate.totalWordsRead, 0, 0),
+            peakWpm: toSafeNumber(progressUpdate.peakWpm, 0, 0),
+            dailyGoal: toSafeNumber(progressUpdate.dailyGoal, 5000, 100, 500000),
+            dailyGoalMetCount: toSafeNumber(progressUpdate.dailyGoalMetCount, 0, 0),
+            unlockedAchievements: Array.isArray(progressUpdate.unlockedAchievements)
+                ? progressUpdate.unlockedAchievements.filter((item): item is string => typeof item === 'string')
+                : [],
+            lastReadDate: toDateKey(progressUpdate.lastReadDate),
+            gymBestTime: progressUpdate.gymBestTime ?? null,
+        });
 
         const db = await initDB();
 
         // Import Sessions
         const txSession = db.transaction('sessions', 'readwrite');
         for (const s of data.sessions) {
-            await txSession.store.put(s);
+            await txSession.store.put(sanitizeSession(s));
         }
         await txSession.done;
 
         // Import Books
         const txBooks = db.transaction('books', 'readwrite');
         for (const b of data.books) {
-            await txBooks.store.put(b);
+            await txBooks.store.put(sanitizeBook(b));
         }
         await txBooks.done;
 
@@ -489,7 +654,6 @@ export const updateUserProgress = async (updates: Partial<UserProgress>, sync = 
     await db.put(STORE_NAME, updated);
 
     if (sync) {
-        syncProgressToCloud(updated);
+        await syncProgressToCloud(updated);
     }
 };
-

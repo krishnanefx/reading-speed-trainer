@@ -1,13 +1,19 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-if (!supabaseUrl || !supabaseAnonKey) {
-    throw new Error('Missing Supabase Environment Variables');
+export const isCloudSyncEnabled = Boolean(supabaseUrl && supabaseAnonKey);
+
+let supabaseClient: SupabaseClient | null = null;
+
+if (isCloudSyncEnabled) {
+    supabaseClient = createClient(supabaseUrl, supabaseAnonKey);
+} else {
+    console.warn('Supabase is not configured. Running in local-only mode.');
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+export const supabase = supabaseClient;
 
 export type Profile = {
     id: string;
