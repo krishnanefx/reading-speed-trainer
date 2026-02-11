@@ -4,6 +4,7 @@ import { devError } from './logger';
 import { createCloudSyncHelpers } from './db/cloudSync';
 import { createCloudPullHelpers } from './db/cloudPull';
 import { createImportExportHelpers } from './db/importExport';
+import { createProgressHelpers } from './db/progress';
 import {
     computeQueueStatus,
     dedupeSyncQueue,
@@ -481,22 +482,15 @@ export const clearSessions = async () => {
     await db.clear(SESSIONS_STORE);
 };
 
-export const getUserProgress = async (): Promise<UserProgress> => {
-    const db = await initDB();
-    const progress = await db.get(STORE_NAME, 'default');
-    return progress || DEFAULT_PROGRESS;
-};
+const progressHelpers = createProgressHelpers({
+    initDB,
+    progressStore: STORE_NAME,
+    defaultProgress: DEFAULT_PROGRESS,
+    syncProgressToCloud,
+});
 
-export const updateUserProgress = async (updates: Partial<UserProgress>, sync = true) => {
-    const db = await initDB();
-    const current = await getUserProgress();
-    const updated = { ...current, ...updates };
-    await db.put(STORE_NAME, updated);
-
-    if (sync) {
-        await syncProgressToCloud(updated);
-    }
-};
+export const getUserProgress = progressHelpers.getUserProgress;
+export const updateUserProgress = progressHelpers.updateUserProgress;
 
 const cloudPullHelpers = createCloudPullHelpers({
     supabase,
