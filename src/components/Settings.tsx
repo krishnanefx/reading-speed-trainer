@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { exportUserData, importUserData } from '../utils/db';
+import { exportUserData, importUserData } from '../utils/db/index';
 import { Auth } from './Auth';
 import { toast } from 'react-hot-toast';
 import { devError } from '../utils/logger';

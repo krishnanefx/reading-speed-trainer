@@ -3,8 +3,8 @@ import Reader from './Reader';
 import Controls from './Controls';
 import ShortcutsHelp from './ShortcutsHelp';
 import { useReader } from '../hooks/useReader';
-import type { Book } from '../utils/db';
-import { logSession, updateBookProgress } from '../utils/db';
+import type { Book } from '../utils/db/index';
+import { logSession, updateBookProgress } from '../utils/db/index';
 import { debounce } from '../utils/common';
 import './ReaderView.css';
 

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { getUserProgress, getSessions } from '../utils/db';
-import type { UserProgress } from '../utils/db';
+import { getUserProgress, getSessions } from '../utils/db/index';
+import type { UserProgress } from '../utils/db/index';
 import { ACHIEVEMENTS } from '../utils/achievements';
 import './Achievements.css';
 

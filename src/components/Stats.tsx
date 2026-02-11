@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { getSessions, clearSessions } from '../utils/db';
-import type { Session } from '../utils/db';
+import { getSessions, clearSessions } from '../utils/db/index';
+import type { Session } from '../utils/db/index';
 import { toast } from 'react-hot-toast';
 import './Stats.css';
 
