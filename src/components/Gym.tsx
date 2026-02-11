@@ -119,7 +119,7 @@ export const Gym: React.FC<GymProps> = ({ onBack }) => {
     return (
         <div className="gym-container">
             <div className="gym-header">
-                <button className="btn-back" onClick={onBack}>← Back</button>
+                <button className="btn-back" onClick={onBack} aria-label="Back to library">← Back</button>
                 <div className="gym-title-group">
                     <h2>Eye Gym</h2>
                     {bestTime && <div className="gym-best-time">Best: {bestTime.toFixed(2)}s</div>}
@@ -141,7 +141,7 @@ export const Gym: React.FC<GymProps> = ({ onBack }) => {
                         key={i}
                         className={`grid-cell ${num < nextNumber ? 'found' : ''}`}
                         onClick={() => handleClick(num)}
-
+                        aria-label={`Select number ${num}`}
                     >
                         {num}
                     </button>
@@ -152,7 +152,7 @@ export const Gym: React.FC<GymProps> = ({ onBack }) => {
                 <div className="completion-modal">
                     <h3>Good Job!</h3>
                     <p>Your time: {formatTime(timeElapsed)}</p>
-                    <button className="btn-restart" onClick={resetGame}>Play Again</button>
+                    <button className="btn-restart" onClick={resetGame} aria-label="Restart eye gym">Play Again</button>
                 </div>
             )}
         </div>

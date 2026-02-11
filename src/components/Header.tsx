@@ -16,7 +16,7 @@ const Header: React.FC<HeaderProps> = React.memo(({ onNavigate, currentView, isO
     : `RETRY #${Math.max(1, syncStatus.retryAttempts)}`;
   return (
     <header className="header">
-      <div className="logo" onClick={() => onNavigate('library')}>
+      <button className="logo" onClick={() => onNavigate('library')} aria-label="Go to library">
         <span className="logo-icon">⚡</span>
         <h1>FlashRead</h1>
         {!isCloudSyncEnabled && (
@@ -37,7 +37,7 @@ const Header: React.FC<HeaderProps> = React.memo(({ onNavigate, currentView, isO
             {syncLabel}
           </span>
         )}
-      </div>
+      </button>
       {/* <p className="app-subtitle">Read faster. Learn more.</p> */}
 
       <nav className="header-nav">

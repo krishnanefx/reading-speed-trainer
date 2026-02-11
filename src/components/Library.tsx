@@ -20,7 +20,19 @@ interface BookCardProps {
 }
 
 const BookCard = React.memo(({ book, coverUrl, timeLeft, onSelect, onDelete }: BookCardProps) => (
-    <div className="book-card" onClick={() => onSelect(book.id)}>
+    <div
+        className="book-card"
+        onClick={() => onSelect(book.id)}
+        onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                void onSelect(book.id);
+            }
+        }}
+        tabIndex={0}
+        role="button"
+        aria-label={`Open ${book.title}`}
+    >
         <div className="book-cover">
             {coverUrl && <img className="book-cover-image" src={coverUrl} alt="" loading="lazy" />}
             {!coverUrl && <div className="book-title-display">{book.title}</div>}
@@ -47,7 +59,7 @@ const BookCard = React.memo(({ book, coverUrl, timeLeft, onSelect, onDelete }: B
             </div>
         </div>
 
-        <button className="delete-btn" onClick={(e) => onDelete(e, book)} title="Delete">
+        <button className="delete-btn" onClick={(e) => onDelete(e, book)} title="Delete" aria-label={`Delete ${book.title}`}>
             &times;
         </button>
     </div>
@@ -361,7 +373,7 @@ const Library: React.FC<LibraryProps> = ({ onSelectBook }) => {
             </div>
             {bookToDelete && (
                 <div className="confirm-overlay" onClick={() => setBookToDelete(null)}>
-                    <div className="confirm-modal" onClick={(e) => e.stopPropagation()}>
+                    <div className="confirm-modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label="Delete book confirmation">
                         <h3>Delete Book</h3>
                         <p>Delete "{bookToDelete.title}" from your library?</p>
                         <div className="confirm-actions">
@@ -373,7 +385,7 @@ const Library: React.FC<LibraryProps> = ({ onSelectBook }) => {
             )}
             {isQuickPasteOpen && (
                 <div className="confirm-overlay" onClick={() => setIsQuickPasteOpen(false)}>
-                    <div className="confirm-modal" onClick={(e) => e.stopPropagation()}>
+                    <div className="confirm-modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label="Quick paste text">
                         <h3>Quick Paste</h3>
                         <textarea
                             value={quickPasteText}

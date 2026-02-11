@@ -63,7 +63,7 @@ export const Stats: React.FC<StatsProps> = ({ onBack }) => {
             <div className="stats-header">
                 <button className="btn-back" onClick={onBack}>← Back</button>
                 <h2>Reading Statistics</h2>
-                <button className="btn-reset" onClick={() => setConfirmReset(true)} title="Reset Stats">
+                <button className="btn-reset" onClick={() => setConfirmReset(true)} title="Reset Stats" aria-label="Reset reading statistics">
                     🗑️
                 </button>
             </div>

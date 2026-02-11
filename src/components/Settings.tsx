@@ -138,12 +138,36 @@ export const Settings: React.FC<SettingsProps> = ({ onBack, updateTheme }) => {
                 <div className="setting-item">
                     <label>Visual Helpers</label>
 
-                    <div className="toggle-row spaced" onClick={() => setBionicMode(!bionicMode)}>
+                    <div
+                        className="toggle-row spaced"
+                        onClick={() => setBionicMode(!bionicMode)}
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault();
+                                setBionicMode(!bionicMode);
+                            }
+                        }}
+                        role="switch"
+                        aria-checked={bionicMode}
+                        tabIndex={0}
+                    >
                         <div className={`checkbox ${bionicMode ? 'checked' : ''}`}></div>
                         <span>Bionic Reading (Highlight start of words)</span>
                     </div>
 
-                    <div className="toggle-row" onClick={() => setAutoAccelerate(!autoAccelerate)}>
+                    <div
+                        className="toggle-row"
+                        onClick={() => setAutoAccelerate(!autoAccelerate)}
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault();
+                                setAutoAccelerate(!autoAccelerate);
+                            }
+                        }}
+                        role="switch"
+                        aria-checked={autoAccelerate}
+                        tabIndex={0}
+                    >
                         <div className={`checkbox ${autoAccelerate ? 'checked' : ''}`}></div>
                         <span>Auto-Accelerate (+10 WPM every 30s)</span>
                     </div>
