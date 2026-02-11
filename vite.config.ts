@@ -2,10 +2,24 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
-// https://vite.dev/config/
-export default defineConfig({
-  plugins: [
-    react(),
+const nodeMajor = Number.parseInt(process.versions.node.split('.')[0], 10)
+const pwaRequested = process.env.ENABLE_PWA !== 'false'
+const pwaSupportedRuntime = Number.isFinite(nodeMajor) && nodeMajor >= 18 && nodeMajor < 23
+const enablePwa = pwaRequested && pwaSupportedRuntime
+
+if (pwaRequested && !pwaSupportedRuntime) {
+  console.warn(
+    `[vite] PWA plugin disabled on Node ${process.versions.node}. ` +
+    'Use Node 20/22 LTS or set ENABLE_PWA=true after validating compatibility.'
+  )
+}
+
+const plugins = [
+  react(),
+]
+
+if (enablePwa) {
+  plugins.push(
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg'],
@@ -66,5 +80,10 @@ export default defineConfig({
         ]
       }
     })
-  ],
+  )
+}
+
+// https://vite.dev/config/
+export default defineConfig({
+  plugins,
 })
