@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { isCloudSyncEnabled, supabase } from '../lib/supabase';
+import type { User } from '@supabase/supabase-js';
 
 export const AuthCallback = () => {
     // Handle auth state changes or redirects if needed
@@ -11,8 +12,10 @@ export const Auth: React.FC = () => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [isSignUp, setIsSignUp] = useState(false);
-    const [user, setUser] = useState<any>(null);
+    const [user, setUser] = useState<User | null>(null);
     const [message, setMessage] = useState('');
+    const [failedAttempts, setFailedAttempts] = useState(0);
+    const [lockUntil, setLockUntil] = useState<number | null>(null);
 
     useEffect(() => {
         if (!isCloudSyncEnabled || !supabase) return;
@@ -32,6 +35,10 @@ export const Auth: React.FC = () => {
 
     const handleAuth = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (lockUntil && Date.now() < lockUntil) {
+            setMessage('Too many attempts. Please wait 30 seconds and try again.');
+            return;
+        }
         setLoading(true);
         setMessage('');
 
@@ -53,8 +60,14 @@ export const Auth: React.FC = () => {
                 });
                 if (error) throw error;
             }
-        } catch (error: any) {
-            setMessage(error.message);
+        } catch (error: unknown) {
+            const attempts = failedAttempts + 1;
+            setFailedAttempts(attempts);
+            if (attempts >= 5) {
+                setLockUntil(Date.now() + 30_000);
+            }
+            console.error(error);
+            setMessage('Sign in failed. Check your credentials or verify your email.');
         } finally {
             setLoading(false);
         }

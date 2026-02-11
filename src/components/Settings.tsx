@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { getUserProgress, updateUserProgress, exportUserData, importUserData } from '../utils/db';
 import { Auth } from './Auth';
+import { toast } from 'react-hot-toast';
 
 interface SettingsProps {
     onBack: () => void;
@@ -74,7 +75,7 @@ export const Settings: React.FC<SettingsProps> = ({ onBack, updateTheme }) => {
             URL.revokeObjectURL(url);
         } catch (error) {
             console.error('Export failed:', error);
-            alert('Failed to export data.');
+            toast.error('Failed to export data.');
         }
     };
 
@@ -86,14 +87,14 @@ export const Settings: React.FC<SettingsProps> = ({ onBack, updateTheme }) => {
             const text = await file.text();
             const success = await importUserData(text);
             if (success) {
-                alert('Data restored successfully! The app will reload.');
+                toast.success('Data restored successfully. Reloading...');
                 window.location.reload();
             } else {
-                alert('Failed to restore data. Invalid file.');
+                toast.error('Failed to restore data. Invalid backup format.');
             }
         } catch (error) {
             console.error('Import failed:', error);
-            alert('Failed to read file.');
+            toast.error('Failed to read backup file.');
         }
     };
 
@@ -231,7 +232,7 @@ export const Settings: React.FC<SettingsProps> = ({ onBack, updateTheme }) => {
                                 await saveBook(book); // Triggers upsert to Supabase
                             }
                             await syncFromCloud(); // Pull any others
-                            alert(`Synced ${books.length} books to Cloud!`);
+                            toast.success(`Synced ${books.length} books to cloud.`);
                         }} style={{ width: 'auto', padding: '0.75rem 1.5rem' }}>
                             Force Cloud Sync
                         </button>

@@ -86,4 +86,16 @@ if (enablePwa) {
 // https://vite.dev/config/
 export default defineConfig({
   plugins,
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          react: ['react', 'react-dom'],
+          supabase: ['@supabase/supabase-js'],
+          epub: ['epubjs', 'jszip'],
+          ui: ['react-hot-toast']
+        }
+      }
+    }
+  }
 })

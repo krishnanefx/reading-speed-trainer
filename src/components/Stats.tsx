@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { getSessions, clearSessions } from '../utils/db';
 import type { Session } from '../utils/db';
+import { toast } from 'react-hot-toast';
 
 interface StatsProps {
     onBack: () => void;
@@ -8,21 +9,17 @@ interface StatsProps {
 
 export const Stats: React.FC<StatsProps> = ({ onBack }) => {
     const [sessions, setSessions] = useState<Session[]>([]);
+    const [confirmReset, setConfirmReset] = useState(false);
 
     useEffect(() => {
-        loadData();
+        void getSessions().then(setSessions);
     }, []);
 
-    const loadData = async () => {
-        const data = await getSessions();
-        setSessions(data);
-    };
-
     const handleReset = async () => {
-        if (confirm("Are you sure you want to delete all reading statistics? This cannot be undone.")) {
-            await clearSessions();
-            loadData();
-        }
+        await clearSessions();
+        setSessions([]);
+        setConfirmReset(false);
+        toast.success('Reading statistics reset.');
     };
 
     const totalWords = sessions.reduce((acc, s) => acc + s.wordsRead, 0);
@@ -56,10 +53,17 @@ export const Stats: React.FC<StatsProps> = ({ onBack }) => {
             <div className="stats-header">
                 <button className="btn-back" onClick={onBack}>← Back</button>
                 <h2>Reading Statistics</h2>
-                <button className="btn-reset" onClick={handleReset} title="Reset Stats">
+                <button className="btn-reset" onClick={() => setConfirmReset(true)} title="Reset Stats">
                     🗑️
                 </button>
             </div>
+            {confirmReset && (
+                <div className="confirm-banner">
+                    <span>Delete all stats? This cannot be undone.</span>
+                    <button onClick={handleReset}>Confirm</button>
+                    <button onClick={() => setConfirmReset(false)}>Cancel</button>
+                </div>
+            )}
 
             <div className="stats-grid">
                 <div className="stat-card">
@@ -142,6 +146,23 @@ export const Stats: React.FC<StatsProps> = ({ onBack }) => {
                     grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
                     gap: 1.5rem;
                     margin-bottom: 3rem;
+                }
+                .confirm-banner {
+                    display: flex;
+                    gap: 0.5rem;
+                    align-items: center;
+                    justify-content: center;
+                    background: rgba(225, 29, 72, 0.12);
+                    border: 1px solid rgba(225, 29, 72, 0.45);
+                    border-radius: var(--radius-md);
+                    padding: 0.65rem;
+                    margin-bottom: 1rem;
+                    font-size: 0.9rem;
+                }
+                .confirm-banner button {
+                    border: 1px solid rgba(255,255,255,0.18);
+                    border-radius: var(--radius-sm);
+                    padding: 0.35rem 0.65rem;
                 }
 
                 .stat-card {

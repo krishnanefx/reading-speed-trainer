@@ -1,11 +1,11 @@
 // Basic debounce function to reduce function calls
-export function debounce<T extends (...args: any[]) => any>(
-    func: T,
+export function debounce<TArgs extends unknown[]>(
+    func: (...args: TArgs) => void,
     wait: number
-): (...args: Parameters<T>) => void {
+): (...args: TArgs) => void {
     let timeout: ReturnType<typeof setTimeout> | null = null;
 
-    return function play(...args: Parameters<T>) {
+    return function play(...args: TArgs) {
         if (timeout) {
             clearTimeout(timeout);
         }

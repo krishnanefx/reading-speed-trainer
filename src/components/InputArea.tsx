@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { parseEpub, parseTxt } from '../utils/fileHelpers';
+import { toast } from 'react-hot-toast';
 
 interface InputAreaProps {
   onTextSubmit: (text: string) => void;
@@ -25,33 +26,27 @@ const InputArea: React.FC<InputAreaProps> = ({ onTextSubmit, initialText = '' })
     try {
       let content = '';
       if (file.name.endsWith('.epub')) {
-        // @ts-ignore
         const result = await parseEpub(file);
-        // Handle both object return {text, cover} and simpler string return
-        if (typeof result === 'object' && result !== null && 'text' in result) {
-          content = result.text;
-        } else {
-          // fallback if somehow returns string
-          content = result as string;
-        }
+        content = result.text;
       } else if (file.name.endsWith('.txt')) {
         content = await parseTxt(file);
       } else {
-        alert('Unsupported file type. Please use .txt or .epub');
+        toast.error('Unsupported file type. Please use .txt or .epub.');
         setIsLoading(false);
         return;
       }
 
       if (!content || content.length < 50) {
-        alert('Could not extract text from this book, or it was empty after filtering.');
-        console.warn("Extracted empty content", content);
+        toast.error('Could not extract text from this file.');
       } else {
         setText(content);
         onTextSubmit(content);
+        toast.success('Text loaded.');
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
-      alert(`Error parsing file: ${err.message || err}`);
+      const message = err instanceof Error ? err.message : 'Unknown parser error';
+      toast.error(`Error parsing file: ${message}`);
     } finally {
       setIsLoading(false);
       // Reset input so same file can be selected again if needed

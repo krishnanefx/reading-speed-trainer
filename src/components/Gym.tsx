@@ -1,24 +1,42 @@
 import React, { useState, useEffect } from 'react';
 import { getUserProgress, updateUserProgress, getSessions } from '../utils/db';
 import { checkNewAchievements } from '../utils/achievements';
+import { toast } from 'react-hot-toast';
 
 interface GymProps {
     onBack: () => void;
 }
 
+const GRID_SIZE = 5;
+
+const createShuffledGrid = (size: number) => {
+    const numbers = Array.from({ length: size * size }, (_, i) => i + 1);
+    // Fisher-Yates shuffle
+    for (let i = numbers.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [numbers[i], numbers[j]] = [numbers[j], numbers[i]];
+    }
+    return numbers;
+};
+
 export const Gym: React.FC<GymProps> = ({ onBack }) => {
-    const [grid, setGrid] = useState<number[]>([]);
+    const nowMs = () => performance.now();
+    const [grid, setGrid] = useState<number[]>(() => createShuffledGrid(GRID_SIZE));
     const [nextNumber, setNextNumber] = useState(1);
     const [startTime, setStartTime] = useState<number | null>(null);
     const [timeElapsed, setTimeElapsed] = useState(0);
     const [isComplete, setIsComplete] = useState(false);
     const [bestTime, setBestTime] = useState<number | null>(null);
 
-    // 5x5 Grid
-    const size = 5;
+    const resetGame = () => {
+        setGrid(createShuffledGrid(GRID_SIZE));
+        setNextNumber(1);
+        setStartTime(null);
+        setTimeElapsed(0);
+        setIsComplete(false);
+    };
 
     useEffect(() => {
-        resetGame();
         getUserProgress().then(p => {
             setBestTime(p.gymBestTime);
         });
@@ -28,38 +46,24 @@ export const Gym: React.FC<GymProps> = ({ onBack }) => {
         let interval: ReturnType<typeof setInterval>;
         if (startTime && !isComplete) {
             interval = setInterval(() => {
-                setTimeElapsed(Date.now() - startTime);
+                setTimeElapsed(nowMs() - startTime);
             }, 50); // fast update for mm:ss:ms
         }
         return () => clearInterval(interval);
     }, [startTime, isComplete]);
 
-    const resetGame = () => {
-        const numbers = Array.from({ length: size * size }, (_, i) => i + 1);
-        // Fisher-Yates shuffle
-        for (let i = numbers.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [numbers[i], numbers[j]] = [numbers[j], numbers[i]];
-        }
-        setGrid(numbers);
-        setNextNumber(1);
-        setStartTime(null);
-        setTimeElapsed(0);
-        setIsComplete(false);
-    };
-
     const handleStart = () => {
-        setStartTime(Date.now());
+        setStartTime(nowMs());
     };
 
     const handleClick = async (num: number) => {
         if (!startTime) handleStart();
 
         if (num === nextNumber) {
-            if (num === size * size) {
+            if (num === GRID_SIZE * GRID_SIZE) {
                 // Game Complete
                 setIsComplete(true);
-                const finalTime = Date.now() - (startTime || Date.now());
+                const finalTime = nowMs() - (startTime || nowMs());
                 const finalTimeSeconds = finalTime / 1000;
 
                 // Update Progress
@@ -97,7 +101,7 @@ export const Gym: React.FC<GymProps> = ({ onBack }) => {
                 });
 
                 if (newAchievements.length > 0) {
-                    console.log('🏆 Gym Achievements Unlocked:', newAchievements);
+                    toast.success('New gym achievement unlocked!');
                 }
 
             }
