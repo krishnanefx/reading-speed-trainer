@@ -217,15 +217,6 @@ function App() {
     }
   };
 
-  const handleUpdateSettings = useCallback((settings: { wpm?: number }) => {
-    // Optional: Update default WPM if user changes it significantly?
-    // For now, we trust ReaderView handles Book WPM. 
-    // If we want to persist last used WPM as default:
-    if (settings.wpm) {
-      // setDefaultWpm(settings.wpm); // Uncomment if we want "sticky" global WPM
-    }
-  }, []);
-
   const handleSelectBook = useCallback(async (bookId: string) => {
     const start = performance.now();
     const book = await getBook(bookId);
@@ -313,7 +304,6 @@ function App() {
               setCurrentBook(null);
             }}
             onUpdateStats={handleSessionComplete}
-            onUpdateSettings={handleUpdateSettings}
           />
         )}
       </Suspense>

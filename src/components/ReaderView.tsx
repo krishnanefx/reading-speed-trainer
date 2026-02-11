@@ -18,7 +18,6 @@ interface ReaderViewProps {
     initialAutoAccelerate: boolean;
     onBack: () => void;
     onUpdateStats: (wordsRead: number, wpm: number, duration: number) => void;
-    onUpdateSettings?: (settings: { wpm?: number; chunkSize?: number; font?: string; fontSize?: number }) => void;
 }
 
 const ReaderView: React.FC<ReaderViewProps> = ({
@@ -30,8 +29,7 @@ const ReaderView: React.FC<ReaderViewProps> = ({
     initialBionicMode,
     initialAutoAccelerate,
     onBack,
-    onUpdateStats,
-    onUpdateSettings
+    onUpdateStats
 }) => {
     // Local View State
     const [isFocusMode, setIsFocusMode] = useState(false);
@@ -147,9 +145,8 @@ const ReaderView: React.FC<ReaderViewProps> = ({
             if (shouldCloudSync) {
                 setLastSyncedIndex(idx);
             }
-            onUpdateSettings?.({ wpm: speed }); // Optional: sync WPM back to app/book
         }, 3500),
-        [onUpdateSettings, chunkSize, lastSyncedIndex]
+        [chunkSize, lastSyncedIndex]
     );
 
     useEffect(() => {
