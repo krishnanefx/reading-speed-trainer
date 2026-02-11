@@ -10,7 +10,8 @@
 - [x] App lifecycle: include explicit `offline` phase behavior.
 - [ ] DB migrations: add deterministic migration tests.
 - [x] Remove next heavy inline style block (`ReaderView`).
-- [ ] Add perf diagnostics panel based on `[perf]` phases.
+- [x] Add perf diagnostics panel based on `[perf]` phases.
+- [ ] Repo cleanup: remove stale docs/files, add ownership notes, and archive obsolete guides.
 
 ## Phase 1 - Foundation (In Progress)
 - [x] Split data reads for fast library startup (`book_meta` + lazy cover loading).
@@ -42,10 +43,16 @@
 - [ ] Virtualize heavy list paths and preserve scroll position exactly.
 - [ ] Add skeletons and phased loading UI for library and stats.
 - [ ] Remove remaining large inline style objects in interactive components.
-- [ ] Add diagnostics panel for slow-path phases from perf logs.
+- [x] Add diagnostics panel for slow-path phases from perf logs.
 
 ## Phase 6 - Testing + Observability
 - [ ] Unit tests for reader scheduler and sync merge logic.
 - [ ] Integration tests for DB + sync queue replay/retry.
 - [ ] E2E test for first load, open book, resume, and offline/online transitions.
 - [ ] Structured telemetry/error reporting with privacy-safe payloads.
+
+## Phase 7 - Repo Cleanup (New)
+- [ ] Audit root files and archive docs no longer used by current architecture.
+- [ ] Add `docs/` structure with clear active vs legacy references.
+- [ ] Remove dead code paths, unused components, and stale comments.
+- [ ] Add a `CONTRIBUTING.md` with coding/runtime/perf guardrails.

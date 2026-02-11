@@ -4,6 +4,7 @@ const Library = lazy(() => import('./components/Library'));
 const Header = lazy(() => import('./components/Header'));
 const Footer = lazy(() => import('./components/Footer'));
 const ReaderView = lazy(() => import('./components/ReaderView'));
+const PerfDiagnostics = lazy(() => import('./components/PerfDiagnostics'));
 // Lazy loaded components
 const Settings = lazy(() => import('./components/Settings').then(m => ({ default: m.Settings })));
 const Stats = lazy(() => import('./components/Stats').then(m => ({ default: m.Stats })));
@@ -340,6 +341,9 @@ function App() {
       <Suspense fallback={null}>
         {/* Footer is global except reader (ReaderView handles its own layout/footer-less state) */}
         {view !== 'reader' && <Footer />}
+      </Suspense>
+      <Suspense fallback={null}>
+        <PerfDiagnostics />
       </Suspense>
         </>
       )}
