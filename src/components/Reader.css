@@ -1,0 +1,86 @@
+.reader-display {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  min-height: 300px;
+  user-select: none;
+}
+
+.word-container {
+  font-size: clamp(3rem, 15vw, 8rem);
+  font-weight: 500;
+  text-align: center;
+  line-height: 1.2;
+  z-index: 2;
+  padding: 1rem;
+  max-width: 100%;
+  word-break: break-word;
+  transition: font-size 0.2s ease;
+}
+
+.word-container.font-serif {
+  font-family: "Merriweather", "Georgia", serif;
+}
+
+.word-container.font-mono {
+  font-family: "Fira Code", "Courier New", monospace;
+}
+
+.word-container.font-sans {
+  font-family: "Inter", system-ui, sans-serif;
+}
+
+.word-container.size-1 {
+  font-size: clamp(2rem, 8vw, 4rem);
+}
+
+.word-container.size-2 {
+  font-size: clamp(2.5rem, 12vw, 6rem);
+}
+
+.word-container.size-3 {
+  font-size: clamp(3rem, 15vw, 8rem);
+}
+
+.word-container.size-4 {
+  font-size: clamp(4rem, 18vw, 10rem);
+}
+
+.word-container.size-5 {
+  font-size: clamp(5rem, 22vw, 12rem);
+}
+
+.bionic-segment {
+  display: inline-block;
+  margin-right: 0.25em;
+}
+
+.bionic-bold {
+  font-weight: 800;
+  color: var(--color-text);
+}
+
+.bionic-tail {
+  opacity: 0.85;
+}
+
+.guide-lines {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 120px;
+  transform: translateY(-50%);
+  border-top: 2px solid rgba(255, 255, 255, 0.05);
+  border-bottom: 2px solid rgba(255, 255, 255, 0.05);
+  pointer-events: none;
+}
+
+@media (max-width: 600px) {
+  .reader-display {
+    min-height: 250px;
+  }
+}
