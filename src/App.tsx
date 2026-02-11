@@ -88,11 +88,7 @@ function App() {
   useEffect(() => {
     if (!sessionUser) return;
     const interval = setInterval(async () => {
-      try {
-        await syncFromCloud();
-      } catch (e) {
-        console.error("Auto Sync Failed", e);
-      }
+      await syncFromCloud();
     }, 5 * 60 * 1000);
     return () => clearInterval(interval);
   }, [sessionUser]);
