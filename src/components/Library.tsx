@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { getBooks, saveBook, deleteBook } from '../utils/db';
 import type { Book } from '../utils/db';
 import { parseEpub } from '../utils/fileHelpers';
@@ -8,6 +8,53 @@ import { devError } from '../utils/logger';
 interface LibraryProps {
     onSelectBook: (book: Book) => void;
 }
+
+interface BookCardProps {
+    book: Book;
+    timeLeft: string;
+    onSelect: (book: Book) => void;
+    onDelete: (e: React.MouseEvent, book: Book) => void;
+}
+
+const BookCard = React.memo(({ book, timeLeft, onSelect, onDelete }: BookCardProps) => (
+    <div className="book-card" onClick={() => onSelect(book)}>
+        <div className="book-cover" style={
+            book.cover ? {
+                backgroundImage: `url(${book.cover})`,
+                backgroundSize: 'cover',
+                backgroundPosition: 'center',
+                backgroundRepeat: 'no-repeat'
+            } : {}
+        }>
+            {!book.cover && <div className="book-title-display">{book.title}</div>}
+
+            <div className="book-progress-overlay desktop-only">
+                <div className="progress-info">
+                    <span className="progress-percent">{Math.round(book.progress * 100)}%</span>
+                    <span className="time-left">{timeLeft}</span>
+                </div>
+                <div className="progress-bar">
+                    <div className="progress-fill" style={{ width: `${book.progress * 100}%` }}></div>
+                </div>
+            </div>
+        </div>
+
+        <div className="book-info-mobile">
+            <div className="book-title-mobile">{book.title}</div>
+            <div className="book-meta-mobile">
+                <span className="progress-percent">{Math.round(book.progress * 100)}%</span>
+                <span className="time-left">{timeLeft}</span>
+            </div>
+            <div className="progress-bar">
+                <div className="progress-fill" style={{ width: `${book.progress * 100}%` }}></div>
+            </div>
+        </div>
+
+        <button className="delete-btn" onClick={(e) => onDelete(e, book)} title="Delete">
+            &times;
+        </button>
+    </div>
+));
 
 const Library: React.FC<LibraryProps> = ({ onSelectBook }) => {
     const [books, setBooks] = useState<Book[]>([]);
@@ -110,7 +157,7 @@ const Library: React.FC<LibraryProps> = ({ onSelectBook }) => {
         }
     };
 
-    const getEstimatedTimeLeft = (book: Book) => {
+    const getEstimatedTimeLeft = useCallback((book: Book) => {
         const textContent = book.content || book.text;
         if (!textContent) return '';
         // totalWords is now a field on Book, but fall back to calculating if missing (legacy)
@@ -129,7 +176,15 @@ const Library: React.FC<LibraryProps> = ({ onSelectBook }) => {
             const mins = minutesLeft % 60;
             return `${hours}h ${mins}m left`;
         }
-    };
+    }, []);
+
+    const timeLeftByBookId = useMemo(() => {
+        const result = new Map<string, string>();
+        for (const book of books) {
+            result.set(book.id, getEstimatedTimeLeft(book));
+        }
+        return result;
+    }, [books, getEstimatedTimeLeft]);
 
     return (
         <div className="library-container">
@@ -158,46 +213,13 @@ const Library: React.FC<LibraryProps> = ({ onSelectBook }) => {
 
             <div className="books-grid">
                 {books.map(book => (
-                    <div key={book.id} className="book-card" onClick={() => onSelectBook(book)}>
-                        <div className="book-cover" style={
-                            book.cover ? {
-                                backgroundImage: `url(${book.cover})`,
-                                backgroundSize: 'cover',
-                                backgroundPosition: 'center',
-                                backgroundRepeat: 'no-repeat'
-                            } : {}
-                        }>
-                            {/* Only show title text if no cover image (desktop grid) */}
-                            {!book.cover && <div className="book-title-display">{book.title}</div>}
-
-                            {/* Progress overlay for desktop grid view */}
-                            <div className="book-progress-overlay desktop-only">
-                                <div className="progress-info">
-                                    <span className="progress-percent">{Math.round(book.progress * 100)}%</span>
-                                    <span className="time-left">{getEstimatedTimeLeft(book)}</span>
-                                </div>
-                                <div className="progress-bar">
-                                    <div className="progress-fill" style={{ width: `${book.progress * 100}%` }}></div>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Mobile list view: Book info section with title and progress */}
-                        <div className="book-info-mobile">
-                            <div className="book-title-mobile">{book.title}</div>
-                            <div className="book-meta-mobile">
-                                <span className="progress-percent">{Math.round(book.progress * 100)}%</span>
-                                <span className="time-left">{getEstimatedTimeLeft(book)}</span>
-                            </div>
-                            <div className="progress-bar">
-                                <div className="progress-fill" style={{ width: `${book.progress * 100}%` }}></div>
-                            </div>
-                        </div>
-
-                        <button className="delete-btn" onClick={(e) => handleDeleteClick(e, book)} title="Delete">
-                            &times;
-                        </button>
-                    </div>
+                    <BookCard
+                        key={book.id}
+                        book={book}
+                        timeLeft={timeLeftByBookId.get(book.id) || ''}
+                        onSelect={onSelectBook}
+                        onDelete={handleDeleteClick}
+                    />
                 ))}
 
                 {books.length === 0 && !isLoading && (

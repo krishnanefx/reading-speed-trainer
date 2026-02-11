@@ -55,6 +55,7 @@ const ReaderView: React.FC<ReaderViewProps> = ({
     // Session Tracking
     const sessionStartTimeRef = useRef<number | null>(null);
     const wordsReadStartRef = useRef<number>(0);
+    const [lastSyncedIndex, setLastSyncedIndex] = useState(book.currentIndex || 0);
     // Refs for stable Event Listeners
     const latestIndexRef = useRef(currentIndex);
     const wordsRef = useRef(words);
@@ -101,6 +102,8 @@ const ReaderView: React.FC<ReaderViewProps> = ({
             const wordsRead = Math.max(0, latestIndexRef.current - wordsReadStartRef.current);
 
             if (duration > 2 && wordsRead > 0) {
+                const latestProgress = words.length > 0 ? latestIndexRef.current / words.length : 0;
+                void updateBookProgress(book.id, latestProgress, latestIndexRef.current, wpm, true);
                 logSession({
                     id: Date.now().toString(),
                     bookId: book.id,
@@ -113,7 +116,7 @@ const ReaderView: React.FC<ReaderViewProps> = ({
             }
             sessionStartTimeRef.current = null;
         }
-    }, [book.id, wpm, onUpdateStats]); // wpm might be average? Using current for now.
+    }, [book.id, wpm, onUpdateStats, words.length]); // wpm might be average? Using current for now.
 
     // Watch Play State for Session Start/End
     useEffect(() => {
@@ -137,10 +140,15 @@ const ReaderView: React.FC<ReaderViewProps> = ({
     // Debounced Progress Saving
     const saveProgressDebounced = useMemo(
         () => debounce((id: string, prog: number, idx: number, speed: number) => {
-            updateBookProgress(id, prog, idx, speed);
+            const indexDelta = Math.abs(idx - lastSyncedIndex);
+            const shouldCloudSync = indexDelta >= Math.max(40, chunkSize * 20) || prog >= 0.999;
+            void updateBookProgress(id, prog, idx, speed, shouldCloudSync);
+            if (shouldCloudSync) {
+                setLastSyncedIndex(idx);
+            }
             onUpdateSettings?.({ wpm: speed }); // Optional: sync WPM back to app/book
-        }, 1000),
-        [onUpdateSettings]
+        }, 3500),
+        [onUpdateSettings, chunkSize, lastSyncedIndex]
     );
 
     useEffect(() => {
