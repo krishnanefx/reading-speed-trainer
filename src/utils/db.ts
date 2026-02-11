@@ -390,6 +390,25 @@ const mergeProgress = (local: UserProgress, cloud: UserProgress): UserProgress =
     };
 };
 
+const resolveBookConflict = (local: Book, cloud: Book): { winner: 'local' | 'cloud'; book: Book } => {
+    const localTs = local.lastRead || 0;
+    const cloudTs = cloud.lastRead || 0;
+    if (localTs > cloudTs) return { winner: 'local', book: local };
+    if (cloudTs > localTs) return { winner: 'cloud', book: cloud };
+    if ((local.progress || 0) >= (cloud.progress || 0)) return { winner: 'local', book: local };
+    return { winner: 'cloud', book: cloud };
+};
+
+const resolveSessionConflict = (
+    local: Session,
+    cloud: Session
+): { winner: 'local' | 'cloud'; session: Session } => {
+    const localTs = local.timestamp || 0;
+    const cloudTs = cloud.timestamp || 0;
+    if (localTs >= cloudTs) return { winner: 'local', session: local };
+    return { winner: 'cloud', session: cloud };
+};
+
 export const initDB = async () => {
     return openDB(DB_NAME, DB_VERSION, {
         upgrade(db) {
@@ -641,21 +660,18 @@ export const syncFromCloud = async () => {
                     cover: cb.cover
                 };
                 const existing = localById.get(localBook.id);
-                const localTs = existing?.lastRead || 0;
-                const cloudTs = localBook.lastRead || 0;
-                const keepLocal = Boolean(
-                    existing && (localTs > cloudTs || (localTs === cloudTs && (existing.progress || 0) >= (localBook.progress || 0)))
-                );
-
-                if (keepLocal) {
-                    await tx.objectStore(BOOKS_STORE).put(existing!);
-                    await tx.objectStore(BOOK_META_STORE).put(toLibraryBook(existing!));
-                    if (existing?.cover) {
-                        await tx.objectStore(BOOK_COVER_STORE).put({ id: existing.id, cover: existing.cover });
+                if (existing) {
+                    const resolved = resolveBookConflict(existing, localBook);
+                    await tx.objectStore(BOOKS_STORE).put(sanitizeBook(resolved.book));
+                    await tx.objectStore(BOOK_META_STORE).put(toLibraryBook(resolved.book));
+                    if (resolved.book.cover) {
+                        await tx.objectStore(BOOK_COVER_STORE).put({ id: resolved.book.id, cover: resolved.book.cover });
                     } else {
-                        await tx.objectStore(BOOK_COVER_STORE).delete(existing!.id);
+                        await tx.objectStore(BOOK_COVER_STORE).delete(resolved.book.id);
                     }
-                    await syncBookToCloud(existing!, false);
+                    if (resolved.winner === 'local') {
+                        await syncBookToCloud(existing, false);
+                    }
                 } else {
                     const sanitized = sanitizeBook(localBook);
                     await tx.objectStore(BOOKS_STORE).put(sanitized);
@@ -688,22 +704,36 @@ export const syncFromCloud = async () => {
         } else if (cloudSessions) {
             const db = await initDB();
             const localSessions = await getSessions();
-            const localIds = new Set(localSessions.map((session) => session.id));
+            const localById = new Map(localSessions.map((session) => [session.id, sanitizeSession(session)]));
+            const cloudById = new Map<string, Session>();
             const tx = db.transaction(SESSIONS_STORE, 'readwrite');
+
             for (const cs of cloudSessions) {
-                const localSession: Session = {
+                const cloudSession = sanitizeSession({
                     id: cs.id,
                     bookId: cs.book_id,
                     durationSeconds: cs.duration_seconds,
                     wordsRead: cs.words_read,
                     averageWpm: cs.average_wpm,
                     timestamp: cs.timestamp
-                };
-                await tx.store.put(sanitizeSession(localSession));
+                });
+                cloudById.set(cloudSession.id, cloudSession);
+                const localSession = localById.get(cloudSession.id);
+                if (!localSession) {
+                    await tx.store.put(cloudSession);
+                    continue;
+                }
+
+                const resolved = resolveSessionConflict(localSession, cloudSession);
+                await tx.store.put(resolved.session);
+                if (resolved.winner === 'local') {
+                    await syncSessionToCloud(localSession, false);
+                }
             }
-            const cloudIds = new Set(cloudSessions.map((session) => String(session.id)));
-            for (const localSession of localSessions) {
-                if (!cloudIds.has(localSession.id) && localIds.has(localSession.id)) {
+
+            for (const localSession of localById.values()) {
+                if (!cloudById.has(localSession.id)) {
+                    await tx.store.put(localSession);
                     await syncSessionToCloud(localSession, false);
                 }
             }
