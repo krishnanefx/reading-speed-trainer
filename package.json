@@ -13,7 +13,8 @@
     "preview": "vite preview",
     "budget": "node scripts/check-bundle-budget.mjs",
     "test:migrations": "node scripts/check-db-migrations.mjs",
-    "ci": "npm run lint && npm run build && npm run budget && npm run test:migrations"
+    "ci": "npm run lint && npm run build && npm run budget && npm run test:migrations && npm run test:unit",
+    "test:unit": "rm -rf .tmp/tests && tsc -p tsconfig.tests.json && node --experimental-specifier-resolution=node --test .tmp/tests/tests/unit/*.test.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.89.0",

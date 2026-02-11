@@ -51,11 +51,11 @@
 - [~] Add accessible labels, ARIA roles, and keyboard focus management — added ARIA labels to icon/actions, keyboard/role support for library cards and settings switches, and dialog semantics for modals; full a11y audit still pending.
 
 ## Phase 6 - Testing + Observability
-- [ ] Unit tests for reader scheduler and sync merge logic.
+- [x] Unit tests for reader scheduler and sync merge logic.
 - [ ] Integration tests for DB + sync queue replay/retry.
 - [ ] E2E test for first load, open book, resume, and offline/online transitions.
 - [~] Structured telemetry/error reporting with privacy-safe payloads (added structured logger with level/event payloads and basic sensitive-field redaction; backend sink still pending).
-- [ ] Set up test infrastructure (Vitest) — currently zero test files exist anywhere in the project.
+- [~] Set up test infrastructure (Vitest) — added local TypeScript + `node:test` unit pipeline (`tsconfig.tests.json`, `tests/unit/*`, and `npm run test:unit`) without network installs; Vitest migration still optional.
 - [x] Add type-safe DB access — `getBooks()` uses `eslint-disable @typescript-eslint/no-explicit-any` to cast records; add proper typed helpers.
 
 ## Phase 7 - Repo Cleanup
