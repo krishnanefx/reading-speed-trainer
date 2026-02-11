@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, lazy, Suspense } from 'react';
+import { useState, useEffect, useCallback, lazy, Suspense, useRef } from 'react';
 import { Toaster, toast } from 'react-hot-toast';
 const Library = lazy(() => import('./components/Library'));
 const Header = lazy(() => import('./components/Header'));
@@ -34,6 +34,7 @@ function App() {
   const [view, setView] = useState<AppView>('library');
   const [phase, setPhase] = useState<AppPhase>('boot');
   const [currentBook, setCurrentBook] = useState<Book | null>(null);
+  const isApplyingHashFromViewRef = useRef(false);
 
   // User Session State
   const [sessionUser, setSessionUser] = useState<{ id: string } | null>(null);
@@ -251,6 +252,10 @@ function App() {
   // Hash Navigation Support
   useEffect(() => {
     const handleHashChange = () => {
+      if (isApplyingHashFromViewRef.current) {
+        isApplyingHashFromViewRef.current = false;
+        return;
+      }
       const hash = window.location.hash.slice(1);
       if (hash === 'reader') {
         if (!currentBook) {
@@ -271,6 +276,7 @@ function App() {
     const hash = window.location.hash.slice(1);
     if (hash !== view) {
       // Only update hash if different to avoid loop/scroll issues
+      isApplyingHashFromViewRef.current = true;
       window.location.hash = view;
     }
   }, [view]);
