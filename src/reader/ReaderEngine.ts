@@ -55,7 +55,11 @@ export class ReaderEngine {
     }
 
     setText(text: string): void {
-        this.words = text.split(/\s+/).filter(w => w.length > 0);
+        this.setWords(text.split(/\s+/).filter(w => w.length > 0));
+    }
+
+    setWords(words: string[]): void {
+        this.words = words.filter((word) => word.length > 0);
         const maxIndex = Math.max(0, this.words.length - 1);
         this.currentIndex = clamp(this.currentIndex, 0, maxIndex);
 

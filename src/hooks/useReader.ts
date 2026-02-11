@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { ReaderEngine } from '../reader/ReaderEngine';
+import { tokenizeText } from '../utils/tokenize';
 
 interface UseReaderProps {
     text: string;
@@ -8,7 +9,7 @@ interface UseReaderProps {
 }
 
 export const useReader = ({ text, wpm, chunkSize = 1 }: UseReaderProps) => {
-    const [engine] = useState(() => new ReaderEngine({ text, wpm, chunkSize }));
+    const [engine] = useState(() => new ReaderEngine({ text: '', wpm, chunkSize }));
     const [snapshot, setSnapshot] = useState(() => engine.getSnapshot());
 
     useEffect(() => {
@@ -32,7 +33,16 @@ export const useReader = ({ text, wpm, chunkSize = 1 }: UseReaderProps) => {
     }, [engine]);
 
     useEffect(() => {
-        engine.setText(text);
+        let cancelled = false;
+        const updateWords = async () => {
+            const words = await tokenizeText(text);
+            if (cancelled) return;
+            engine.setWords(words);
+        };
+        void updateWords();
+        return () => {
+            cancelled = true;
+        };
     }, [engine, text]);
 
     useEffect(() => {
