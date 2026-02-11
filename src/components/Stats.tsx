@@ -119,11 +119,17 @@ export const Stats: React.FC<StatsProps> = ({ onBack }) => {
                             {statsByDay.map(day => (
                                 <div key={day.date} className="bar-column">
                                     <div className="bar-wrapper">
-                                        <div
-                                            className="bar-fill"
-                                            style={{ height: `${(day.words / maxWords) * 100}%` }}
-                                            title={`${day.words} words on ${day.date}`}
-                                        ></div>
+                                        <svg className="bar-svg" viewBox="0 0 20 100" aria-hidden="true">
+                                            <rect
+                                                className="bar-rect"
+                                                x="0"
+                                                width="20"
+                                                y={day.words === 0 ? 100 : 100 - Math.max(4, Math.round((day.words / maxWords) * 100))}
+                                                height={day.words === 0 ? 0 : Math.max(4, Math.round((day.words / maxWords) * 100))}
+                                                rx="2"
+                                                ry="2"
+                                            />
+                                        </svg>
                                     </div>
                                     <div className="bar-label">
                                         {new Date(day.date).toLocaleDateString(undefined, { weekday: 'narrow' })}

@@ -35,7 +35,7 @@
 - [x] Remove duplicated EPUB parsing logic — `fileHelpers.ts` has a full main-thread parser that duplicates the worker; extract shared types and make the main-thread path a thin fallback only.
 
 ## Phase 4 - Security + Reliability
-- [ ] Remove remaining inline styles/scripts and drop CSP `unsafe-inline`.
+- [x] Remove remaining inline styles/scripts and drop CSP `unsafe-inline`.
 - [x] Add strict runtime schema validation for all import/export formats.
 - [x] Add versioned import migrations with checksum validation.
 - [ ] Finalize Supabase RLS policy audit against every synced table.
@@ -44,10 +44,10 @@
 ## Phase 5 - UX/Performance Polish
 - [~] Virtualize heavy list paths and preserve scroll position exactly (incremental windowing + observer paging added for library; exact scroll-restoration path still pending).
 - [x] Add skeletons and phased loading UI for library and stats.
-- [~] Remove remaining large inline style objects in interactive components (migrated `PerfDiagnostics` + app loader/toaster styles to static CSS; more component migrations pending).
+- [x] Remove remaining large inline style objects in interactive components.
 - [x] Add diagnostics panel for slow-path phases from perf logs.
-- [~] Extract inline `<style>` blocks to CSS modules — currently 9 components (`Auth`, `Achievements`, `Stats`, `Controls`, `Gym`, `ShortcutsHelp`, `InputArea`, `Reader`, `Settings`) embed `<style>{...}</style>` JSX, which blocks CSP `unsafe-inline` removal and duplicates styles on every render. (`Stats`, `Achievements`, `Gym`, `Controls`, `ShortcutsHelp`, `InputArea`, `Reader`, and `Auth` migrated to static CSS.)
-- [ ] Migrate remaining 36+ `style={{}}` inline objects (across `PerfDiagnostics`, `Footer`, `Controls`, `Gym`, `Reader`, `Settings`, `Auth`, `App`) to CSS classes.
+- [x] Extract inline `<style>` blocks to CSS modules — migrated `Auth`, `Achievements`, `Stats`, `Controls`, `Gym`, `ShortcutsHelp`, `InputArea`, `Reader`, and `Settings` to static CSS files.
+- [x] Migrate remaining `style={{}}` inline objects in app components to CSS classes/semantic elements.
 - [ ] Add accessible labels, ARIA roles, and keyboard focus management — several interactive elements (gym grid, achievement cards, nav buttons) lack `aria-label` or `role`.
 
 ## Phase 6 - Testing + Observability

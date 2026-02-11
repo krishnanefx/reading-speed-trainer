@@ -182,6 +182,14 @@
   position: relative;
 }
 
+.book-cover-image {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
 .book-title-display {
   font-size: 1.1rem;
   font-weight: 700;
@@ -237,8 +245,29 @@
 
 .progress-fill {
   height: 100%;
-  background: var(--color-primary);
+  width: 100%;
+}
+
+.progress-native {
+  appearance: none;
+  -webkit-appearance: none;
+  border: 0;
   border-radius: 4px;
+  overflow: hidden;
+  background: transparent;
+}
+
+.progress-native::-webkit-progress-bar {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.progress-native::-webkit-progress-value {
+  background: var(--color-primary);
+  box-shadow: 0 0 10px var(--color-primary);
+}
+
+.progress-native::-moz-progress-bar {
+  background: var(--color-primary);
   box-shadow: 0 0 10px var(--color-primary);
 }
 

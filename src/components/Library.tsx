@@ -21,14 +21,8 @@ interface BookCardProps {
 
 const BookCard = React.memo(({ book, coverUrl, timeLeft, onSelect, onDelete }: BookCardProps) => (
     <div className="book-card" onClick={() => onSelect(book.id)}>
-        <div className="book-cover" style={
-            coverUrl ? {
-                backgroundImage: `url(${coverUrl})`,
-                backgroundSize: 'cover',
-                backgroundPosition: 'center',
-                backgroundRepeat: 'no-repeat'
-            } : {}
-        }>
+        <div className="book-cover">
+            {coverUrl && <img className="book-cover-image" src={coverUrl} alt="" loading="lazy" />}
             {!coverUrl && <div className="book-title-display">{book.title}</div>}
 
             <div className="book-progress-overlay desktop-only">
@@ -37,7 +31,7 @@ const BookCard = React.memo(({ book, coverUrl, timeLeft, onSelect, onDelete }: B
                     <span className="time-left">{timeLeft}</span>
                 </div>
                 <div className="progress-bar">
-                    <div className="progress-fill" style={{ width: `${book.progress * 100}%` }}></div>
+                    <progress className="progress-fill progress-native" max={1} value={book.progress}></progress>
                 </div>
             </div>
         </div>
@@ -49,7 +43,7 @@ const BookCard = React.memo(({ book, coverUrl, timeLeft, onSelect, onDelete }: B
                 <span className="time-left">{timeLeft}</span>
             </div>
             <div className="progress-bar">
-                <div className="progress-fill" style={{ width: `${book.progress * 100}%` }}></div>
+                <progress className="progress-fill progress-native" max={1} value={book.progress}></progress>
             </div>
         </div>
 
