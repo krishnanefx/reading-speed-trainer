@@ -7,6 +7,8 @@ import { devError } from '../utils/logger';
 import { perfLog } from '../utils/perf';
 import './Library.css';
 
+const LIBRARY_SCROLL_Y_KEY = 'flashread_library_scroll_y';
+
 interface LibraryProps {
     onSelectBook: (bookId: string) => void | Promise<void>;
 }
@@ -81,6 +83,31 @@ const Library: React.FC<LibraryProps> = ({ onSelectBook }) => {
 
     useEffect(() => {
         void loadBooks(true);
+    }, []);
+
+    useEffect(() => {
+        const savedY = Number(sessionStorage.getItem(LIBRARY_SCROLL_Y_KEY));
+        if (Number.isFinite(savedY) && savedY > 0) {
+            requestAnimationFrame(() => {
+                window.scrollTo({ top: savedY, behavior: 'auto' });
+            });
+        }
+
+        let ticking = false;
+        const onScroll = () => {
+            if (ticking) return;
+            ticking = true;
+            requestAnimationFrame(() => {
+                ticking = false;
+                sessionStorage.setItem(LIBRARY_SCROLL_Y_KEY, String(Math.max(0, Math.round(window.scrollY))));
+            });
+        };
+
+        window.addEventListener('scroll', onScroll, { passive: true });
+        return () => {
+            sessionStorage.setItem(LIBRARY_SCROLL_Y_KEY, String(Math.max(0, Math.round(window.scrollY))));
+            window.removeEventListener('scroll', onScroll);
+        };
     }, []);
 
     const loadBooks = async (initial = false) => {
