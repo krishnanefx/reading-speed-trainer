@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback, lazy, Suspense } from 'react';
 import { Toaster, toast } from 'react-hot-toast';
-import Library from './components/Library';
-import Header from './components/Header';
-import Footer from './components/Footer';
-import ReaderView from './components/ReaderView';
+const Library = lazy(() => import('./components/Library'));
+const Header = lazy(() => import('./components/Header'));
+const Footer = lazy(() => import('./components/Footer'));
+const ReaderView = lazy(() => import('./components/ReaderView'));
 // Lazy loaded components
 const Settings = lazy(() => import('./components/Settings').then(m => ({ default: m.Settings })));
 const Stats = lazy(() => import('./components/Stats').then(m => ({ default: m.Stats })));
@@ -251,37 +251,39 @@ function App() {
 
   return (
     <div className="container" style={{ transition: 'all 0.5s ease' }}>
-      {/* Header only on main pages */}
-      {view === 'library' && (
-        <Header
-          onNavigate={handleNavigate}
-          currentView={view}
-          isOnline={isOnline}
-          isCloudSyncEnabled={isCloudSyncEnabled}
-        />
-      )}
+      <Suspense fallback={<div className="view-loader" role="status" aria-live="polite">Loading view...</div>}>
+        {/* Header only on main pages */}
+        {view === 'library' && (
+          <Header
+            onNavigate={handleNavigate}
+            currentView={view}
+            isOnline={isOnline}
+            isCloudSyncEnabled={isCloudSyncEnabled}
+          />
+        )}
 
-      {view === 'library' && (
-        <Library onSelectBook={handleSelectBook} />
-      )}
+        {view === 'library' && (
+          <Library onSelectBook={handleSelectBook} />
+        )}
 
-      {view === 'reader' && currentBook && (
-        <ReaderView
-          book={currentBook}
-          initialWpm={currentBook.wpm || defaultWpm}
-          initialChunkSize={defaultChunkSize}
-          initialFont={defaultFont}
-          initialFontSize={defaultFontSize}
-          initialBionicMode={bionicMode}
-          initialAutoAccelerate={autoAccelerate}
-          onBack={() => {
-            setView('library');
-            setCurrentBook(null);
-          }}
-          onUpdateStats={handleSessionComplete}
-          onUpdateSettings={handleUpdateSettings}
-        />
-      )}
+        {view === 'reader' && currentBook && (
+          <ReaderView
+            book={currentBook}
+            initialWpm={currentBook.wpm || defaultWpm}
+            initialChunkSize={defaultChunkSize}
+            initialFont={defaultFont}
+            initialFontSize={defaultFontSize}
+            initialBionicMode={bionicMode}
+            initialAutoAccelerate={autoAccelerate}
+            onBack={() => {
+              setView('library');
+              setCurrentBook(null);
+            }}
+            onUpdateStats={handleSessionComplete}
+            onUpdateSettings={handleUpdateSettings}
+          />
+        )}
+      </Suspense>
 
       <Suspense fallback={<div style={{ textAlign: 'center', marginTop: '20vh' }}>Loading...</div>}>
         {view === 'settings' && (
@@ -303,8 +305,10 @@ function App() {
         }
       }} />
 
-      {/* Footer is global except reader (ReaderView handles its own layout/footer-less state) */}
-      {view !== 'reader' && <Footer />}
+      <Suspense fallback={null}>
+        {/* Footer is global except reader (ReaderView handles its own layout/footer-less state) */}
+        {view !== 'reader' && <Footer />}
+      </Suspense>
     </div>
   );
 }
