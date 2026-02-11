@@ -65,7 +65,7 @@
 - [x] Add a `CONTRIBUTING.md` with coding/runtime/perf guardrails.
 
 ## Phase 8 - Architecture Refactors (New)
-- [~] **Split `db.ts` monolith** — extracted shared models/types/sanitizers/checksum/import normalization into `src/utils/db/models.ts` and sync queue utilities into `src/utils/db/syncQueue.ts`; remaining split of sync/cloud/import-export modules still pending.
+- [~] **Split `db.ts` monolith** — extracted shared models/types/sanitizers/checksum/import normalization into `src/utils/db/models.ts`, sync queue utilities into `src/utils/db/syncQueue.ts`, and cloud push helpers into `src/utils/db/cloudSync.ts`; remaining split of pull/import-export orchestration still pending.
 - [~] **Extract `App.tsx` concerns** — moved gamification/session update flow to `utils/gamification.ts`; further routing/session decomposition pending.
 - [x] **Unify settings hydration** — `App` and `Settings` now use shared settings helpers (DB + localStorage write-through) for consistent load/save.
 - [x] **Stabilize callback identities in `App.tsx`** — `onBack` handlers and `onUpdateStats` are now stable via `useCallback`.

@@ -1,6 +1,7 @@
 import { openDB } from 'idb';
 import { isCloudSyncEnabled, supabase } from '../lib/supabase';
 import { devError } from './logger';
+import { createCloudSyncHelpers } from './db/cloudSync';
 import {
     computeQueueStatus,
     dedupeSyncQueue,
@@ -219,139 +220,19 @@ export const addToSyncQueue = async (type: SyncItem['type'], payload: SyncPayloa
     await updateSyncStatusFromQueue();
 };
 
-// Cloud Sync Helpers with Queue Strategy
-const syncProgressToCloud = async (progress: UserProgress, queueOnFailure = true): Promise<boolean> => {
-    if (!isCloudAvailable()) return false;
-    if (!navigator.onLine) {
-        if (queueOnFailure) {
-            await addToSyncQueue('UPDATE_PROGRESS', progress);
-        }
-        return false;
-    }
-
-    const userId = await getSessionUserId();
-    if (!userId) return false;
-
-    const { error } = await supabase!
-        .from('user_progress')
-        .upsert({
-            user_id: userId,
-            current_streak: progress.currentStreak,
-            longest_streak: progress.longestStreak,
-            total_words_read: progress.totalWordsRead,
-            peak_wpm: progress.peakWpm,
-            daily_goal: progress.dailyGoal,
-            gym_best_time: progress.gymBestTime,
-            unlocked_achievements: progress.unlockedAchievements,
-            last_read_date: progress.lastReadDate
-        });
-
-    if (error) {
-        devError('Cloud Sync Error (Progress):', error);
-        if (queueOnFailure) {
-            await addToSyncQueue('UPDATE_PROGRESS', progress);
-        }
-        return false;
-    }
-
-    return true;
-};
-
-const syncSessionToCloud = async (s: Session, queueOnFailure = true): Promise<boolean> => {
-    if (!isCloudAvailable()) return false;
-    if (!navigator.onLine) {
-        if (queueOnFailure) {
-            await addToSyncQueue('SYNC_SESSION', s);
-        }
-        return false;
-    }
-
-    const userId = await getSessionUserId();
-    if (!userId) return false;
-
-    const { error } = await supabase!
-        .from('reading_sessions')
-        .upsert({
-            id: s.id,
-            user_id: userId,
-            book_id: s.bookId,
-            duration_seconds: s.durationSeconds,
-            words_read: s.wordsRead,
-            average_wpm: s.averageWpm,
-            timestamp: s.timestamp
-        });
-
-    if (error) {
-        devError('Cloud Sync Error (Session):', error);
-        if (queueOnFailure) {
-            await addToSyncQueue('SYNC_SESSION', s);
-        }
-        return false;
-    }
-
-    return true;
-};
-
-const syncBookToCloud = async (book: Book, queueOnFailure = true): Promise<boolean> => {
-    if (!isCloudAvailable()) return false;
-    if (!navigator.onLine) {
-        if (queueOnFailure) {
-            await addToSyncQueue('SYNC_BOOK', book);
-        }
-        return false;
-    }
-
-    const userId = await getSessionUserId();
-    if (!userId) return false;
-
-    const { error } = await supabase!
-        .from('books')
-        .upsert({
-            id: book.id,
-            user_id: userId,
-            title: book.title,
-            content: book.content,
-            progress: book.progress,
-            total_words: book.totalWords,
-            current_index: book.currentIndex || 0,
-            last_read: book.lastRead || Date.now(),
-            wpm: book.wpm,
-            cover: book.cover
-        });
-
-    if (error) {
-        devError('Cloud Sync Error (Book):', error);
-        if (queueOnFailure) {
-            await addToSyncQueue('SYNC_BOOK', book);
-        }
-        return false;
-    }
-
-    return true;
-};
-
-const deleteBookFromCloud = async (id: string, queueOnFailure = true): Promise<boolean> => {
-    if (!isCloudAvailable()) return false;
-    if (!navigator.onLine) {
-        if (queueOnFailure) {
-            await addToSyncQueue('DELETE_BOOK', id);
-        }
-        return false;
-    }
-
-    const userId = await getSessionUserId();
-    if (!userId) return false;
-
-    const { error } = await supabase!.from('books').delete().eq('id', id).eq('user_id', userId);
-    if (error) {
-        devError('Cloud Sync Error (Delete Book):', error);
-        if (queueOnFailure) {
-            await addToSyncQueue('DELETE_BOOK', id);
-        }
-        return false;
-    }
-    return true;
-};
+const {
+    syncProgressToCloud,
+    syncSessionToCloud,
+    syncBookToCloud,
+    deleteBookFromCloud,
+} = createCloudSyncHelpers({
+    supabase,
+    isCloudAvailable,
+    isOnline: () => navigator.onLine,
+    getSessionUserId,
+    addToSyncQueue,
+    logError: devError,
+});
 
 // Main Sync Function (Pull from Cloud)
 export const syncFromCloud = async () => {
