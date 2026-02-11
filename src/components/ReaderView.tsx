@@ -264,6 +264,7 @@ const ReaderView: React.FC<ReaderViewProps> = ({
                         onClick={() => setIsFocusMode(!isFocusMode)}
                         className={`focus-btn ${isFocusMode ? 'active' : ''}`}
                         title="Toggle Focus Mode (Press 'F')"
+                        aria-label={isFocusMode ? 'Disable focus mode' : 'Enable focus mode'}
                     >
                         <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             {isFocusMode ? (
@@ -300,6 +301,7 @@ const ReaderView: React.FC<ReaderViewProps> = ({
                         <button
                             onClick={togglePlay}
                             className={`focus-play-btn ${isPlaying ? 'playing' : ''}`}
+                            aria-label={isPlaying ? 'Pause reading' : 'Start reading'}
                         >
                             {isPlaying ? (
                                 <svg width="32" height="32" fill="currentColor" viewBox="0 0 24 24">

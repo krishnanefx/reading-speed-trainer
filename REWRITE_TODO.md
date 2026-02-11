@@ -48,7 +48,7 @@
 - [x] Add diagnostics panel for slow-path phases from perf logs.
 - [x] Extract inline `<style>` blocks to CSS modules — migrated `Auth`, `Achievements`, `Stats`, `Controls`, `Gym`, `ShortcutsHelp`, `InputArea`, `Reader`, and `Settings` to static CSS files.
 - [x] Migrate remaining `style={{}}` inline objects in app components to CSS classes/semantic elements.
-- [ ] Add accessible labels, ARIA roles, and keyboard focus management — several interactive elements (gym grid, achievement cards, nav buttons) lack `aria-label` or `role`.
+- [~] Add accessible labels, ARIA roles, and keyboard focus management — added ARIA labels to icon/actions, keyboard/role support for library cards and settings switches, and dialog semantics for modals; full a11y audit still pending.
 
 ## Phase 6 - Testing + Observability
 - [ ] Unit tests for reader scheduler and sync merge logic.
