@@ -36,8 +36,8 @@
 
 ## Phase 4 - Security + Reliability
 - [ ] Remove remaining inline styles/scripts and drop CSP `unsafe-inline`.
-- [ ] Add strict runtime schema validation for all import/export formats.
-- [ ] Add versioned import migrations with checksum validation.
+- [x] Add strict runtime schema validation for all import/export formats.
+- [x] Add versioned import migrations with checksum validation.
 - [ ] Finalize Supabase RLS policy audit against every synced table.
 - [ ] Add React Error Boundaries around each lazy-loaded view so a crash in one view doesn't blank the entire app.
 

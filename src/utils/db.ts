@@ -294,18 +294,66 @@ const isRecord = (value: unknown): value is Record<string, unknown> => {
     return typeof value === 'object' && value !== null && !Array.isArray(value);
 };
 
+const stableStringify = (value: unknown): string => {
+    if (value === null || typeof value !== 'object') {
+        return JSON.stringify(value);
+    }
+    if (Array.isArray(value)) {
+        return `[${value.map((item) => stableStringify(item)).join(',')}]`;
+    }
+    const record = value as Record<string, unknown>;
+    const keys = Object.keys(record).sort();
+    const entries = keys.map((key) => `${JSON.stringify(key)}:${stableStringify(record[key])}`);
+    return `{${entries.join(',')}}`;
+};
+
+const computeChecksum = (value: unknown): string => {
+    const input = stableStringify(value);
+    let hash = 0x811c9dc5;
+    for (let i = 0; i < input.length; i += 1) {
+        hash ^= input.charCodeAt(i);
+        hash = Math.imul(hash, 0x01000193);
+    }
+    return (hash >>> 0).toString(16).padStart(8, '0');
+};
+
 const normalizeBackupPayload = (raw: unknown) => {
     if (!isRecord(raw)) throw new Error('Invalid backup: expected object.');
     const version = toSafeNumber(raw.version, 0, 0);
-    if (version !== 1) throw new Error('Unsupported backup version.');
 
-    const progress = raw.progress;
-    const sessions = raw.sessions;
-    const books = raw.books;
+    let progress: unknown;
+    let sessions: unknown;
+    let books: unknown;
+
+    if (version === 1) {
+        progress = raw.progress;
+        sessions = raw.sessions;
+        books = raw.books;
+    } else if (version === 2) {
+        const payload = raw.payload;
+        if (!isRecord(payload)) throw new Error('Invalid backup payload.');
+        const checksum = typeof raw.checksum === 'string' ? raw.checksum : '';
+        const computed = computeChecksum(payload);
+        if (!checksum || checksum !== computed) {
+            throw new Error('Backup checksum mismatch.');
+        }
+        progress = payload.progress;
+        sessions = payload.sessions;
+        books = payload.books;
+    } else {
+        throw new Error('Unsupported backup version.');
+    }
 
     if (!isRecord(progress) || !Array.isArray(sessions) || !Array.isArray(books)) {
         throw new Error('Invalid backup payload shape.');
     }
+
+    const hasValidSessions = sessions.every((item) => isRecord(item));
+    const hasValidBooks = books.every((item) => isRecord(item));
+    if (!hasValidSessions || !hasValidBooks) {
+        throw new Error('Invalid backup item records.');
+    }
+
     if (sessions.length > MAX_IMPORT_ITEMS || books.length > MAX_IMPORT_ITEMS) {
         throw new Error('Backup contains too many records.');
     }
@@ -1003,17 +1051,18 @@ export const exportUserData = async (): Promise<string> => {
     const sessions = await getSessions();
     const books = await getBooks();
 
-    const data = {
-        version: 1,
-        timestamp: Date.now(),
+    const payload = {
         progress,
         sessions,
-        books: books.map(b => ({ ...b, cover: undefined }))
-    };
-    return JSON.stringify({
-        ...data,
         books
-    });
+    };
+    const data = {
+        version: 2,
+        timestamp: Date.now(),
+        payload,
+        checksum: computeChecksum(payload)
+    };
+    return JSON.stringify(data);
 };
 
 export const importUserData = async (jsonString: string): Promise<boolean> => {
