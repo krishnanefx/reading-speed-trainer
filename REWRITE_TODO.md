@@ -54,7 +54,7 @@
 - [ ] Unit tests for reader scheduler and sync merge logic.
 - [ ] Integration tests for DB + sync queue replay/retry.
 - [ ] E2E test for first load, open book, resume, and offline/online transitions.
-- [ ] Structured telemetry/error reporting with privacy-safe payloads.
+- [~] Structured telemetry/error reporting with privacy-safe payloads (added structured logger with level/event payloads and basic sensitive-field redaction; backend sink still pending).
 - [ ] Set up test infrastructure (Vitest) — currently zero test files exist anywhere in the project.
 - [x] Add type-safe DB access — `getBooks()` uses `eslint-disable @typescript-eslint/no-explicit-any` to cast records; add proper typed helpers.
 
