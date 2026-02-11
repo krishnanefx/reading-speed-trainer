@@ -77,6 +77,7 @@ const Library: React.FC<LibraryProps> = ({ onSelectBook }) => {
     const [importStatus, setImportStatus] = useState<string>('');
     const [visibleCount, setVisibleCount] = useState(42);
     const loadMoreRef = useRef<HTMLDivElement | null>(null);
+    const requestedCoverIdsRef = useRef<Set<string>>(new Set());
 
     useEffect(() => {
         void loadBooks(true);
@@ -113,45 +114,51 @@ const Library: React.FC<LibraryProps> = ({ onSelectBook }) => {
     };
 
     useEffect(() => {
+        setVisibleCount(42);
+    }, [books.length]);
+
+    useEffect(() => {
+        requestedCoverIdsRef.current.clear();
+        setCoverByBookId({});
+    }, [books]);
+
+    const visibleBooks = useMemo(() => books.slice(0, visibleCount), [books, visibleCount]);
+
+    useEffect(() => {
         let cancelled = false;
-        const hydrateCovers = async () => {
+        const hydrateVisibleCovers = async () => {
+            const allVisibleCoverIds = visibleBooks
+                .filter((book) => book.hasCover)
+                .map((book) => book.id);
+            if (allVisibleCoverIds.length === 0) return;
+
+            const missingIds = allVisibleCoverIds.filter((id) => {
+                if (coverByBookId[id]) return false;
+                if (requestedCoverIdsRef.current.has(id)) return false;
+                return true;
+            });
+            if (missingIds.length === 0) return;
+
+            for (const id of missingIds) requestedCoverIdsRef.current.add(id);
             const start = performance.now();
-            const ids = books.filter((book) => book.hasCover).map((book) => book.id);
-            if (ids.length === 0) {
-                setCoverByBookId({});
-                perfLog('library.cover_hydration', performance.now() - start, { withCover: 0 });
-                return;
+            const batchSize = 24;
+            for (let index = 0; index < missingIds.length; index += batchSize) {
+                const batch = missingIds.slice(index, index + batchSize);
+                const covers = await getLibraryBookCovers(batch);
+                if (cancelled) return;
+                setCoverByBookId((prev) => ({ ...prev, ...covers }));
             }
-
-            const firstBatch = ids.slice(0, 24);
-            const first = await getLibraryBookCovers(firstBatch);
-            if (!cancelled) {
-                setCoverByBookId(first);
-            }
-            perfLog('library.cover_hydration_first', performance.now() - start, { firstBatch: firstBatch.length, total: ids.length });
-
-            const remainder = ids.slice(24);
-            if (remainder.length > 0) {
-                setTimeout(async () => {
-                    const restStart = performance.now();
-                    const rest = await getLibraryBookCovers(remainder);
-                    if (!cancelled) {
-                        setCoverByBookId((prev) => ({ ...prev, ...rest }));
-                    }
-                    perfLog('library.cover_hydration_rest', performance.now() - restStart, { restCount: remainder.length });
-                }, 0);
-            }
+            perfLog('library.cover_hydration_visible', performance.now() - start, {
+                requested: missingIds.length,
+                visible: visibleBooks.length
+            });
         };
 
-        void hydrateCovers();
+        void hydrateVisibleCovers();
         return () => {
             cancelled = true;
         };
-    }, [books]);
-
-    useEffect(() => {
-        setVisibleCount(42);
-    }, [books.length]);
+    }, [visibleBooks, coverByBookId]);
 
     useEffect(() => {
         if (visibleCount >= books.length) return;
@@ -233,10 +240,10 @@ const Library: React.FC<LibraryProps> = ({ onSelectBook }) => {
         }
     };
 
-    const handleDeleteClick = (e: React.MouseEvent, book: LibraryBook) => {
+    const handleDeleteClick = useCallback((e: React.MouseEvent, book: LibraryBook) => {
         e.stopPropagation();
         setBookToDelete(book);
-    };
+    }, []);
 
     const handleConfirmDelete = async () => {
         if (!bookToDelete) return;
@@ -301,8 +308,6 @@ const Library: React.FC<LibraryProps> = ({ onSelectBook }) => {
         }
         return result;
     }, [books, getEstimatedTimeLeft]);
-
-    const visibleBooks = useMemo(() => books.slice(0, visibleCount), [books, visibleCount]);
 
     return (
         <div className="library-container">
