@@ -12,7 +12,8 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "budget": "node scripts/check-bundle-budget.mjs",
-    "ci": "npm run lint && npm run build && npm run budget"
+    "test:migrations": "node scripts/check-db-migrations.mjs",
+    "ci": "npm run lint && npm run build && npm run budget && npm run test:migrations"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.89.0",

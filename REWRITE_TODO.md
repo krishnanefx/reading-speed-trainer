@@ -8,7 +8,7 @@
 ## Current Sprint (Active)
 - [x] CI: add lint/build/bundle budget checks on push/PR.
 - [x] App lifecycle: include explicit `offline` phase behavior.
-- [ ] DB migrations: add deterministic migration tests.
+- [x] DB migrations: add deterministic migration tests.
 - [x] Remove next heavy inline style block (`ReaderView`).
 - [x] Add perf diagnostics panel based on `[perf]` phases.
 - [ ] Repo cleanup: remove stale docs/files, add ownership notes, and archive obsolete guides.
@@ -17,7 +17,7 @@
 - [x] Split data reads for fast library startup (`book_meta` + lazy cover loading).
 - [x] Add opt-in runtime perf timings (`?perf=1` / `localStorage.flashread_perf=1`).
 - [x] Introduce explicit app lifecycle state machine (`boot`, `hydrating`, `ready`, `error`, `offline`).
-- [ ] Add deterministic migration framework tests for IndexedDB upgrades.
+- [x] Add deterministic migration framework tests for IndexedDB upgrades (contract checks in CI).
 - [x] Add perf budget checks for startup and open-book latency in CI (bundle size gate in CI).
 
 ## Phase 2 - Reader + Sync Core
