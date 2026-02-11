@@ -14,7 +14,7 @@ const Achievements = lazy(() => import('./components/Achievements').then(m => ({
 import { getBook, syncFromCloud } from './utils/db';
 import type { Book } from './utils/db';
 import type { SyncStatus } from './utils/db';
-import { isCloudSyncEnabled, supabase } from './lib/supabase';
+import { isCloudSyncEnabled } from './lib/supabase';
 import { useNetwork } from './hooks/useNetwork';
 import { processSyncQueue, subscribeSyncStatus } from './utils/db';
 import { perfLog } from './utils/perf';
@@ -22,6 +22,7 @@ import { ViewErrorBoundary } from './components/ViewErrorBoundary';
 import { loadAppSettings } from './utils/settings';
 import { recordSessionAndUpdateProgress } from './utils/gamification';
 import { useHashViewSync } from './hooks/useHashViewSync';
+import { useAuthSession } from './hooks/useAuthSession';
 
 type AppView = 'library' | 'reader' | 'settings' | 'stats' | 'gym' | 'achievements';
 type AppPhase = 'boot' | 'hydrating' | 'ready' | 'offline' | 'error';
@@ -38,7 +39,7 @@ function App() {
   const [currentBook, setCurrentBook] = useState<Book | null>(null);
 
   // User Session State
-  const [sessionUser, setSessionUser] = useState<{ id: string } | null>(null);
+  const sessionUser = useAuthSession();
 
   // Network State
   const isOnline = useNetwork();
@@ -73,24 +74,6 @@ function App() {
   const defaultFontSize = 3;
   const [bionicMode, setBionicMode] = useState(false);
   const [autoAccelerate, setAutoAccelerate] = useState(false);
-
-  // Auth Session
-  useEffect(() => {
-    if (!isCloudSyncEnabled || !supabase) {
-      toast('Cloud sync disabled: local-only mode', { id: 'local-only-toast', duration: 3500 });
-      return;
-    }
-
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSessionUser(session?.user ?? null);
-    });
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSessionUser(session?.user ?? null);
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
 
   // Auto-Sync
   useEffect(() => {
