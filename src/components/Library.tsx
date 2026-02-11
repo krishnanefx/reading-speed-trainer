@@ -4,6 +4,8 @@ import type { Book, LibraryBook } from '../utils/db';
 import { parseEpub } from '../utils/fileHelpers';
 import { toast } from 'react-hot-toast';
 import { devError } from '../utils/logger';
+import { perfLog } from '../utils/perf';
+import './Library.css';
 
 interface LibraryProps {
     onSelectBook: (bookId: string) => void | Promise<void>;
@@ -71,29 +73,38 @@ const Library: React.FC<LibraryProps> = ({ onSelectBook }) => {
     }, []);
 
     const loadBooks = async () => {
+        const start = performance.now();
         const loadedBooks = await getLibraryBooks();
+        perfLog('library.meta_load', performance.now() - start, { count: loadedBooks.length });
         if (loadedBooks.length === 0) {
             const bookCount = await getBookCount();
             if (bookCount === 0) {
                 setBooks([]);
+                perfLog('library.initial_render', performance.now() - start, { count: 0 });
                 return;
             }
             setIsIndexing(true);
+            const rebuildStart = performance.now();
             await rebuildLibraryBookIndex();
+            perfLog('library.index_rebuild', performance.now() - rebuildStart, { bookCount });
             const rebuiltBooks = await getLibraryBooks();
             setBooks(rebuiltBooks.sort((a, b) => (b.lastRead || 0) - (a.lastRead || 0)));
             setIsIndexing(false);
+            perfLog('library.initial_render', performance.now() - start, { count: rebuiltBooks.length });
             return;
         }
         setBooks(loadedBooks.sort((a, b) => (b.lastRead || 0) - (a.lastRead || 0)));
+        perfLog('library.initial_render', performance.now() - start, { count: loadedBooks.length });
     };
 
     useEffect(() => {
         let cancelled = false;
         const hydrateCovers = async () => {
+            const start = performance.now();
             const ids = books.filter((book) => book.hasCover).map((book) => book.id);
             if (ids.length === 0) {
                 setCoverByBookId({});
+                perfLog('library.cover_hydration', performance.now() - start, { withCover: 0 });
                 return;
             }
 
@@ -102,14 +113,17 @@ const Library: React.FC<LibraryProps> = ({ onSelectBook }) => {
             if (!cancelled) {
                 setCoverByBookId(first);
             }
+            perfLog('library.cover_hydration_first', performance.now() - start, { firstBatch: firstBatch.length, total: ids.length });
 
             const remainder = ids.slice(24);
             if (remainder.length > 0) {
                 setTimeout(async () => {
+                    const restStart = performance.now();
                     const rest = await getLibraryBookCovers(remainder);
                     if (!cancelled) {
                         setCoverByBookId((prev) => ({ ...prev, ...rest }));
                     }
+                    perfLog('library.cover_hydration_rest', performance.now() - restStart, { restCount: remainder.length });
                 }, 0);
             }
         };
@@ -235,7 +249,7 @@ const Library: React.FC<LibraryProps> = ({ onSelectBook }) => {
         <div className="library-container">
             <div className="library-header">
                 <h2>Your Library</h2>
-                <div className="action-buttons" style={{ display: 'flex', gap: '0.5rem' }}>
+                <div className="action-buttons">
                     <button
                         className="btn-upload btn-secondary"
                         onClick={() => setIsQuickPasteOpen(true)}
@@ -250,7 +264,7 @@ const Library: React.FC<LibraryProps> = ({ onSelectBook }) => {
                             accept=".txt,.epub"
                             onChange={handleFileUpload}
                             disabled={isLoading}
-                            style={{ display: 'none' }}
+                            className="hidden-file-input"
                         />
                     </label>
                 </div>
@@ -310,372 +324,6 @@ const Library: React.FC<LibraryProps> = ({ onSelectBook }) => {
                 </div>
             )}
 
-            <style>{`
-        .library-container {
-            width: 100%;
-            /* max-width removed to fill usage of .container from index.css */
-            margin: 0 auto;
-            padding: 0; /* Let parent handle padding */
-            padding-bottom: 5rem;
-        }
-
-        .library-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 2rem;
-            flex-wrap: wrap; /* Allow wrapping on very small screens */
-            gap: 1rem;
-        }
-
-        .library-header h2 {
-            font-size: 1.75rem;
-            font-weight: 800;
-            color: var(--color-text);
-            margin: 0;
-            letter-spacing: -0.02em;
-        }
-
-        .btn-upload {
-            background: var(--color-primary);
-            color: white;
-            padding: 0.75rem 1.25rem;
-            border-radius: var(--radius-full);
-            font-weight: 600;
-            cursor: pointer;
-            transition: var(--transition-normal);
-            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            white-space: nowrap;
-            font-size: 0.95rem;
-            gap: 0.5rem;
-        }
-
-        .btn-upload.btn-secondary {
-            background: rgba(255,255,255,0.08);
-            box-shadow: none;
-            border: 1px solid rgba(255,255,255,0.1);
-        }
-        
-        .btn-upload.btn-secondary:hover {
-            background: rgba(255,255,255,0.15);
-        }
-
-        .btn-upload:hover {
-            background: var(--color-primary-hover);
-            transform: translateY(-2px);
-        }
-
-        .books-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-            gap: 2rem;
-            animation: fadeIn 0.4s ease-out;
-        }
-        
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        .confirm-overlay {
-            position: fixed;
-            inset: 0;
-            background: rgba(0, 0, 0, 0.55);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 2000;
-        }
-        .confirm-modal {
-            width: min(560px, 92%);
-            background: var(--color-surface-solid);
-            border: 1px solid rgba(255,255,255,0.1);
-            border-radius: var(--radius-lg);
-            padding: 1rem;
-        }
-        .confirm-modal textarea {
-            width: 100%;
-            background: rgba(0,0,0,0.2);
-            border: 1px solid rgba(255,255,255,0.14);
-            color: var(--color-text);
-            border-radius: var(--radius-sm);
-            padding: 0.75rem;
-            margin: 0.75rem 0;
-        }
-        .confirm-actions {
-            display: flex;
-            justify-content: flex-end;
-            gap: 0.5rem;
-        }
-
-        .book-card {
-            background: var(--color-surface);
-            border-radius: var(--radius-md);
-            border: 1px solid rgba(255,255,255,0.1);
-            overflow: hidden;
-            cursor: pointer;
-            transition: all 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
-            position: relative;
-            aspect-ratio: 2/3;
-            display: flex;
-            flex-direction: column;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.2);
-        }
-
-        .book-card:hover {
-            transform: translateY(-5px);
-            border-color: rgba(255,255,255,0.3);
-            box-shadow: 0 12px 24px rgba(0,0,0,0.4);
-            z-index: 10;
-        }
-
-        .book-cover {
-            flex: 1;
-            padding: 1.5rem;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            background: radial-gradient(circle at center, rgba(255,255,255,0.07) 0%, rgba(255,255,255,0.02) 100%);
-            text-align: center;
-            position: relative;
-        }
-        
-        .book-title-display {
-            font-size: 1.1rem;
-            font-weight: 700;
-            line-height: 1.4;
-            max-height: 3.5em; /* limit to 3 lines roughl */
-            overflow: hidden;
-            text-overflow: ellipsis;
-            display: -webkit-box;
-            -webkit-line-clamp: 3;
-            -webkit-box-orient: vertical;
-            text-shadow: 0 2px 8px rgba(0,0,0,0.6);
-            padding: 0 0.5rem;
-        }
-
-        .book-progress-overlay {
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            padding: 0.75rem 1rem;
-            background: rgba(0, 0, 0, 0.85);
-            backdrop-filter: blur(8px);
-            -webkit-backdrop-filter: blur(8px);
-            border-top: 1px solid rgba(255, 255, 255, 0.1);
-        }
-
-        .progress-info {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 0.5rem;
-            font-size: 0.8rem;
-            color: rgba(255,255,255,0.95);
-            font-weight: 600;
-        }
-        
-        .progress-percent {
-            background: rgba(255, 255, 255, 0.15);
-            padding: 0.15rem 0.5rem;
-            border-radius: 4px;
-        }
-        
-        .time-left {
-            color: var(--color-primary);
-            font-weight: 700;
-        }
-
-        .progress-bar {
-            height: 4px;
-            background: rgba(255,255,255,0.1);
-            border-radius: 4px;
-            overflow: hidden;
-        }
-
-        .progress-fill {
-            height: 100%;
-            background: var(--color-primary);
-            border-radius: 4px;
-            box-shadow: 0 0 10px var(--color-primary);
-        }
-        
-        .delete-btn {
-            position: absolute;
-            top: 0.5rem;
-            right: 0.5rem;
-            background: rgba(0,0,0,0.6);
-            backdrop-filter: blur(4px);
-            color: white;
-            border: 1px solid rgba(255,255,255,0.1);
-            border-radius: 50%;
-            width: 32px;
-            height: 32px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            opacity: 0;
-            transition: all 0.2s;
-            z-index: 20;
-            font-size: 1.25rem;
-            line-height: 0;
-            padding-bottom: 2px;
-        }
-        
-        .book-card:hover .delete-btn {
-            opacity: 1;
-        }
-        
-        .delete-btn:hover {
-            background: var(--color-accent);
-            border-color: var(--color-accent);
-            transform: scale(1.1);
-        }
-
-        .empty-state {
-            grid-column: 1 / -1;
-            text-align: center;
-            padding: 5rem 2rem;
-            color: var(--color-text-secondary);
-            border: 2px dashed rgba(255,255,255,0.1);
-            border-radius: var(--radius-lg);
-            background: rgba(255,255,255,0.02);
-        }
-
-        /* Hide mobile-only elements on desktop */
-        .book-info-mobile {
-            display: none;
-        }
-
-        /* --- Mobile Overhaul --- */
-        @media (max-width: 640px) {
-            .library-header {
-                flex-direction: column;
-                align-items: flex-start;
-                gap: 1rem;
-            }
-            
-            .library-header h2 {
-                margin-left: 0.5rem;
-            }
-            
-            .action-buttons {
-                width: 100%;
-                display: grid !important;
-                grid-template-columns: 1fr 1fr;
-                gap: 0.75rem !important;
-            }
-            
-            .btn-upload {
-                width: 100%;
-                padding: 1rem 0.75rem;
-                font-size: 0.9rem;
-                border-radius: var(--radius-md);
-                min-height: 52px;
-            }
-            
-            .btn-upload.btn-secondary {
-                background: rgba(255,255,255,0.1);
-            }
-
-            /* Switch Grid to List View */
-            .books-grid {
-                display: flex;
-                flex-direction: column;
-                gap: 0.75rem;
-            }
-            
-            .book-card {
-                aspect-ratio: auto;
-                flex-direction: row;
-                height: auto;
-                min-height: 100px;
-                padding: 0;
-                transform: none !important;
-                overflow: hidden;
-            }
-            
-            .book-cover {
-                width: 70px;
-                min-width: 70px;
-                flex: none;
-                padding: 0;
-                background: rgba(0,0,0,0.3);
-                border-radius: var(--radius-md) 0 0 var(--radius-md);
-            }
-            
-            /* Hide desktop overlay on mobile */
-            .book-progress-overlay.desktop-only {
-                display: none !important;
-            }
-            
-            .book-title-display {
-                font-size: 0.65rem;
-                -webkit-line-clamp: 3;
-                padding: 0.5rem;
-            }
-            
-            /* Show mobile info section */
-            .book-info-mobile {
-                display: flex;
-                flex-direction: column;
-                justify-content: center;
-                flex: 1;
-                padding: 0.75rem 1rem;
-                min-width: 0;
-                gap: 0.5rem;
-            }
-            
-            .book-title-mobile {
-                font-size: 0.95rem;
-                font-weight: 600;
-                color: var(--color-text);
-                line-height: 1.3;
-                display: -webkit-box;
-                -webkit-line-clamp: 2;
-                -webkit-box-orient: vertical;
-                overflow: hidden;
-                text-overflow: ellipsis;
-            }
-            
-            .book-meta-mobile {
-                display: flex;
-                gap: 0.75rem;
-                font-size: 0.8rem;
-            }
-            
-            .book-meta-mobile .progress-percent {
-                background: rgba(255, 255, 255, 0.1);
-                padding: 0.15rem 0.4rem;
-                border-radius: 4px;
-                font-weight: 600;
-            }
-            
-            .book-meta-mobile .time-left {
-                color: var(--color-primary);
-                font-weight: 600;
-            }
-            
-            .book-info-mobile .progress-bar {
-                margin-top: 0.25rem;
-            }
-             
-            .delete-btn {
-                opacity: 1;
-                position: static;
-                align-self: center;
-                margin-right: 0.75rem;
-                flex-shrink: 0;
-                width: 32px;
-                height: 32px;
-                background: rgba(255,255,255,0.08);
-            }
-        }
-      `}</style>
         </div>
     );
 };
