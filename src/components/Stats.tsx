@@ -10,9 +10,18 @@ interface StatsProps {
 export const Stats: React.FC<StatsProps> = ({ onBack }) => {
     const [sessions, setSessions] = useState<Session[]>([]);
     const [confirmReset, setConfirmReset] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
-        void getSessions().then(setSessions);
+        let mounted = true;
+        void getSessions().then((loaded) => {
+            if (mounted) setSessions(loaded);
+        }).finally(() => {
+            if (mounted) setIsLoading(false);
+        });
+        return () => {
+            mounted = false;
+        };
     }, []);
 
     const handleReset = async () => {
@@ -66,37 +75,62 @@ export const Stats: React.FC<StatsProps> = ({ onBack }) => {
             )}
 
             <div className="stats-grid">
-                <div className="stat-card">
-                    <div className="stat-value">{totalWords.toLocaleString()}</div>
-                    <div className="stat-label">Total Words Read</div>
-                </div>
-                <div className="stat-card">
-                    <div className="stat-value">{hours}h {minutes}m</div>
-                    <div className="stat-label">Time Spent Reading</div>
-                </div>
-                <div className="stat-card">
-                    <div className="stat-value">{averageWpm}</div>
-                    <div className="stat-label">Average WPM</div>
-                </div>
+                {isLoading ? (
+                    <>
+                        <div className="stat-card skeleton-card"></div>
+                        <div className="stat-card skeleton-card"></div>
+                        <div className="stat-card skeleton-card"></div>
+                    </>
+                ) : (
+                    <>
+                        <div className="stat-card">
+                            <div className="stat-value">{totalWords.toLocaleString()}</div>
+                            <div className="stat-label">Total Words Read</div>
+                        </div>
+                        <div className="stat-card">
+                            <div className="stat-value">{hours}h {minutes}m</div>
+                            <div className="stat-label">Time Spent Reading</div>
+                        </div>
+                        <div className="stat-card">
+                            <div className="stat-value">{averageWpm}</div>
+                            <div className="stat-label">Average WPM</div>
+                        </div>
+                    </>
+                )}
             </div>
 
             <div className="chart-container">
                 <h3>Last 7 Days (Words)</h3>
                 <div className="bar-chart">
-                    {statsByDay.map(day => (
-                        <div key={day.date} className="bar-column">
-                            <div className="bar-wrapper">
-                                <div
-                                    className="bar-fill"
-                                    style={{ height: `${(day.words / maxWords) * 100}%` }}
-                                    title={`${day.words} words on ${day.date}`}
-                                ></div>
-                            </div>
-                            <div className="bar-label">
-                                {new Date(day.date).toLocaleDateString(undefined, { weekday: 'narrow' })}
-                            </div>
-                        </div>
-                    ))}
+                    {isLoading ? (
+                        <>
+                            {Array.from({ length: 7 }).map((_, idx) => (
+                                <div key={`stats-skeleton-${idx}`} className="bar-column">
+                                    <div className="bar-wrapper">
+                                        <div className="bar-fill skeleton-bar"></div>
+                                    </div>
+                                    <div className="bar-label">-</div>
+                                </div>
+                            ))}
+                        </>
+                    ) : (
+                        <>
+                            {statsByDay.map(day => (
+                                <div key={day.date} className="bar-column">
+                                    <div className="bar-wrapper">
+                                        <div
+                                            className="bar-fill"
+                                            style={{ height: `${(day.words / maxWords) * 100}%` }}
+                                            title={`${day.words} words on ${day.date}`}
+                                        ></div>
+                                    </div>
+                                    <div className="bar-label">
+                                        {new Date(day.date).toLocaleDateString(undefined, { weekday: 'narrow' })}
+                                    </div>
+                                </div>
+                            ))}
+                        </>
+                    )}
                 </div>
             </div>
 
@@ -173,6 +207,20 @@ export const Stats: React.FC<StatsProps> = ({ onBack }) => {
                     border: 1px solid rgba(255,255,255,0.1);
                     box-shadow: var(--shadow-md);
                 }
+                .skeleton-card {
+                    min-height: 140px;
+                    position: relative;
+                    overflow: hidden;
+                    background: rgba(255,255,255,0.04);
+                }
+                .skeleton-card::after {
+                    content: '';
+                    position: absolute;
+                    inset: 0;
+                    transform: translateX(-100%);
+                    background: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.16) 50%, rgba(255,255,255,0) 100%);
+                    animation: statsShimmer 1.2s ease-in-out infinite;
+                }
 
                 .stat-value {
                     font-size: 2.5rem;
@@ -242,6 +290,15 @@ export const Stats: React.FC<StatsProps> = ({ onBack }) => {
                     border-radius: var(--radius-sm) var(--radius-sm) 0 0;
                     min-height: 4px; /* Ensure visible */
                     transition: height 0.5s ease;
+                }
+                .bar-fill.skeleton-bar {
+                    height: 35%;
+                    background: rgba(255,255,255,0.2);
+                }
+                @keyframes statsShimmer {
+                    100% {
+                        transform: translateX(100%);
+                    }
                 }
 
                 .bar-label {

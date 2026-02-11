@@ -62,6 +62,7 @@ const BookCard = React.memo(({ book, coverUrl, timeLeft, onSelect, onDelete }: B
 const Library: React.FC<LibraryProps> = ({ onSelectBook }) => {
     const [books, setBooks] = useState<LibraryBook[]>([]);
     const [isLoading, setIsLoading] = useState(false);
+    const [isInitialLoading, setIsInitialLoading] = useState(true);
     const [bookToDelete, setBookToDelete] = useState<LibraryBook | null>(null);
     const [isQuickPasteOpen, setIsQuickPasteOpen] = useState(false);
     const [quickPasteText, setQuickPasteText] = useState('');
@@ -70,32 +71,37 @@ const Library: React.FC<LibraryProps> = ({ onSelectBook }) => {
     const [importStatus, setImportStatus] = useState<string>('');
 
     useEffect(() => {
-        loadBooks();
+        void loadBooks(true);
     }, []);
 
-    const loadBooks = async () => {
+    const loadBooks = async (initial = false) => {
+        if (initial) setIsInitialLoading(true);
         const start = performance.now();
-        const loadedBooks = await getLibraryBooks();
-        perfLog('library.meta_load', performance.now() - start, { count: loadedBooks.length });
-        if (loadedBooks.length === 0) {
-            const bookCount = await getBookCount();
-            if (bookCount === 0) {
-                setBooks([]);
-                perfLog('library.initial_render', performance.now() - start, { count: 0 });
+        try {
+            const loadedBooks = await getLibraryBooks();
+            perfLog('library.meta_load', performance.now() - start, { count: loadedBooks.length });
+            if (loadedBooks.length === 0) {
+                const bookCount = await getBookCount();
+                if (bookCount === 0) {
+                    setBooks([]);
+                    perfLog('library.initial_render', performance.now() - start, { count: 0 });
+                    return;
+                }
+                setIsIndexing(true);
+                const rebuildStart = performance.now();
+                await rebuildLibraryBookIndex();
+                perfLog('library.index_rebuild', performance.now() - rebuildStart, { bookCount });
+                const rebuiltBooks = await getLibraryBooks();
+                setBooks(rebuiltBooks.sort((a, b) => (b.lastRead || 0) - (a.lastRead || 0)));
+                setIsIndexing(false);
+                perfLog('library.initial_render', performance.now() - start, { count: rebuiltBooks.length });
                 return;
             }
-            setIsIndexing(true);
-            const rebuildStart = performance.now();
-            await rebuildLibraryBookIndex();
-            perfLog('library.index_rebuild', performance.now() - rebuildStart, { bookCount });
-            const rebuiltBooks = await getLibraryBooks();
-            setBooks(rebuiltBooks.sort((a, b) => (b.lastRead || 0) - (a.lastRead || 0)));
-            setIsIndexing(false);
-            perfLog('library.initial_render', performance.now() - start, { count: rebuiltBooks.length });
-            return;
+            setBooks(loadedBooks.sort((a, b) => (b.lastRead || 0) - (a.lastRead || 0)));
+            perfLog('library.initial_render', performance.now() - start, { count: loadedBooks.length });
+        } finally {
+            if (initial) setIsInitialLoading(false);
         }
-        setBooks(loadedBooks.sort((a, b) => (b.lastRead || 0) - (a.lastRead || 0)));
-        perfLog('library.initial_render', performance.now() - start, { count: loadedBooks.length });
     };
 
     useEffect(() => {
@@ -301,6 +307,15 @@ const Library: React.FC<LibraryProps> = ({ onSelectBook }) => {
             )}
 
             <div className="books-grid">
+                {isInitialLoading && (
+                    <>
+                        {Array.from({ length: 6 }).map((_, idx) => (
+                            <div key={`book-skeleton-${idx}`} className="book-card skeleton-card" aria-hidden="true">
+                                <div className="book-cover skeleton-shimmer"></div>
+                            </div>
+                        ))}
+                    </>
+                )}
                 {books.map(book => (
                     <BookCard
                         key={book.id}
@@ -318,7 +333,7 @@ const Library: React.FC<LibraryProps> = ({ onSelectBook }) => {
                     </div>
                 )}
 
-                {books.length === 0 && !isLoading && !isIndexing && (
+                {books.length === 0 && !isLoading && !isIndexing && !isInitialLoading && (
                     <div className="empty-state">
                         <p>No books yet. Add one to get started!</p>
                     </div>
