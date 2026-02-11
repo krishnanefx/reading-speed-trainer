@@ -2,7 +2,10 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 const dbFile = join(process.cwd(), 'src', 'utils', 'db.ts');
+const localDataFile = join(process.cwd(), 'src', 'utils', 'db', 'localData.ts');
 const source = readFileSync(dbFile, 'utf8');
+const localDataSource = readFileSync(localDataFile, 'utf8');
+const combinedSource = `${source}\n${localDataSource}`;
 
 const requiredStores = [
   'BOOKS_STORE',
@@ -13,8 +16,15 @@ const requiredStores = [
   'SYNC_QUEUE_STORE',
 ];
 
-const mustContain = (pattern, message) => {
-  if (!pattern.test(source)) {
+const mustContain = (pattern, message, input = source) => {
+  if (!pattern.test(input)) {
+    console.error(`[migration-check] FAIL: ${message}`);
+    process.exit(1);
+  }
+};
+
+const mustContainAny = (patterns, message, input = combinedSource) => {
+  if (!patterns.some((pattern) => pattern.test(input))) {
     console.error(`[migration-check] FAIL: ${message}`);
     process.exit(1);
   }
@@ -40,8 +50,28 @@ for (const store of requiredStores) {
   );
 }
 
-mustContain(/transaction\(\[BOOKS_STORE, BOOK_META_STORE, BOOK_COVER_STORE\], 'readwrite'\)/, 'Book+meta+cover atomic transaction is missing.');
-mustContain(/getLibraryBooks = async[\s\S]*db\.getAll\(BOOK_META_STORE\)/, 'Library list must load from BOOK_META_STORE.');
-mustContain(/getLibraryBookCovers = async[\s\S]*db\.get\(BOOK_COVER_STORE/, 'Cover hydration path must read from BOOK_COVER_STORE.');
+mustContainAny(
+  [
+    /transaction\(\[BOOKS_STORE, BOOK_META_STORE, BOOK_COVER_STORE\], 'readwrite'\)/,
+    /transaction\(\[deps\.booksStore, deps\.bookMetaStore, deps\.bookCoverStore\], 'readwrite'\)/,
+  ],
+  'Book+meta+cover atomic transaction is missing.',
+);
+
+mustContainAny(
+  [
+    /getLibraryBooks = async[\s\S]*db\.getAll\(BOOK_META_STORE\)/,
+    /const getLibraryBooks = async[\s\S]*db\.getAll\(deps\.bookMetaStore\)/,
+  ],
+  'Library list must load from BOOK_META_STORE (or module-configured meta store).',
+);
+
+mustContainAny(
+  [
+    /getLibraryBookCovers = async[\s\S]*db\.get\(BOOK_COVER_STORE/,
+    /const getLibraryBookCovers = async[\s\S]*db\.get\(deps\.bookCoverStore/,
+  ],
+  'Cover hydration path must read from BOOK_COVER_STORE (or module-configured cover store).',
+);
 
 console.log(`[migration-check] PASS: DB migration contract validated (version ${dbVersion}).`);
