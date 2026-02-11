@@ -10,7 +10,7 @@ const Stats = lazy(() => import('./components/Stats').then(m => ({ default: m.St
 const Gym = lazy(() => import('./components/Gym').then(m => ({ default: m.Gym })));
 const Achievements = lazy(() => import('./components/Achievements').then(m => ({ default: m.Achievements })));
 
-import { getUserProgress, updateUserProgress, getSessions, getBooks, syncFromCloud } from './utils/db';
+import { getUserProgress, updateUserProgress, getSessions, getBooks, getBook, syncFromCloud } from './utils/db';
 import type { Book } from './utils/db';
 import type { SyncStatus } from './utils/db';
 import { checkNewAchievements } from './utils/achievements';
@@ -216,10 +216,13 @@ function App() {
     }
   }, []);
 
-  const handleSelectBook = useCallback((book: Book) => {
+  const handleSelectBook = useCallback(async (bookId: string) => {
+    const book = await getBook(bookId);
+    if (!book) {
+      toast.error('Could not open this book.');
+      return;
+    }
     setCurrentBook(book);
-    // Determine initial WPM: Book WPM > Default WPM
-    // Book WPM might be undefined if new.
     setView('reader');
   }, []);
 

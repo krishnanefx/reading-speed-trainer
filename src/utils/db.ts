@@ -27,6 +27,17 @@ export interface Book {
     wpm?: number;
 }
 
+export interface LibraryBook {
+    id: string;
+    title: string;
+    progress: number;
+    totalWords: number;
+    cover?: string;
+    currentIndex?: number;
+    lastRead?: number;
+    wpm?: number;
+}
+
 export interface Session {
     id: string;
     bookId: string;
@@ -641,7 +652,23 @@ export const getBooks = async (): Promise<Book[]> => {
     return books.map((b: any) => ({
         ...b,
         content: b.content || b.text || '',
-        totalWords: b.totalWords || (b.content || b.text || '').trim().split(/\s+/).length
+        totalWords: toSafeNumber(b.totalWords, Math.max(0, Math.round(String(b.content || b.text || '').length / 5)), 0)
+    }));
+};
+
+export const getLibraryBooks = async (): Promise<LibraryBook[]> => {
+    const db = await initDB();
+    const books = await db.getAll(BOOKS_STORE);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return books.map((b: any) => ({
+        id: String(b.id),
+        title: String(b.title ?? 'Untitled'),
+        progress: toSafeNumber(b.progress, 0, 0, 1),
+        totalWords: toSafeNumber(b.totalWords, Math.max(0, Math.round(String(b.content || b.text || '').length / 5)), 0),
+        cover: typeof b.cover === 'string' ? b.cover : undefined,
+        currentIndex: toSafeNumber(b.currentIndex, 0, 0),
+        lastRead: toSafeNumber(b.lastRead, 0, 0),
+        wpm: toSafeNumber(b.wpm, 300, 60, 2000),
     }));
 };
 
