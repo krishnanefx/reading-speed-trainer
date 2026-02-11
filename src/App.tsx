@@ -69,7 +69,7 @@ function App() {
   const [defaultWpm, setDefaultWpm] = useState(300);
   const [defaultChunkSize, setDefaultChunkSize] = useState(1);
   const [defaultFont, setDefaultFont] = useState('mono');
-  const [defaultFontSize] = useState(3);
+  const defaultFontSize = 3;
   const [bionicMode, setBionicMode] = useState(false);
   const [autoAccelerate, setAutoAccelerate] = useState(false);
 
