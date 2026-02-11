@@ -25,7 +25,7 @@
 - [x] Keep React as subscriber-only view for reader output.
 - [x] Make sync queue fully durable with persisted retry metadata.
 - [x] Implement queue compaction + idempotent replay by entity key.
-- [ ] Define conflict policy per entity type (progress/session/book).
+- [x] Define conflict policy per entity type (progress/session/book).
 
 ## Phase 3 - Worker-First Heavy Processing
 - [x] Move EPUB parsing to worker.
