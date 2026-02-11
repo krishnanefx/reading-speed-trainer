@@ -137,16 +137,16 @@ function App() {
     });
   }, [sessionUser]);
 
-  const refreshSettings = () => {
+  const refreshSettings = useCallback(() => {
     // Logic to reload settings if changed in Settings view
     const savedBionic = localStorage.getItem('bionicMode');
     setBionicMode(savedBionic === 'true');
     const savedAuto = localStorage.getItem('autoAccelerate');
     setAutoAccelerate(savedAuto === 'true');
-  };
+  }, []);
 
   // Gamification Logic
-  const handleSessionComplete = async (wordsRead: number, sessionWpm: number, durationSeconds: number) => {
+  const handleSessionComplete = useCallback(async (wordsRead: number, sessionWpm: number, durationSeconds: number) => {
     const progress = await getUserProgress();
     const sessions = await getSessions();
     const allBooks = await getBooks();
@@ -216,7 +216,7 @@ function App() {
         toast.success(`🏆 Achievement Unlocked!`, { duration: 4000 });
       });
     }
-  };
+  }, []);
 
   const handleSelectBook = useCallback(async (bookId: string) => {
     const start = performance.now();
@@ -237,6 +237,15 @@ function App() {
     if (!isAppView(newView)) return;
     setView(newView);
     if (newView !== 'reader') setCurrentBook(null);
+  }, []);
+
+  const handleBackToLibrary = useCallback(() => {
+    handleNavigate('library');
+  }, [handleNavigate]);
+
+  const handleReaderBack = useCallback(() => {
+    setView('library');
+    setCurrentBook(null);
   }, []);
 
   // Hash Navigation Support
@@ -301,10 +310,7 @@ function App() {
             initialFontSize={defaultFontSize}
             initialBionicMode={bionicMode}
             initialAutoAccelerate={autoAccelerate}
-            onBack={() => {
-              setView('library');
-              setCurrentBook(null);
-            }}
+            onBack={handleReaderBack}
             onUpdateStats={handleSessionComplete}
           />
         )}
@@ -315,13 +321,13 @@ function App() {
       <Suspense fallback={<div className="view-loader compact" role="status" aria-live="polite">Loading...</div>}>
         {view === 'settings' && (
           <Settings
-            onBack={() => handleNavigate('library')}
+            onBack={handleBackToLibrary}
             updateTheme={refreshSettings}
           />
         )}
-        {view === 'stats' && <Stats onBack={() => handleNavigate('library')} />}
-        {view === 'gym' && <Gym onBack={() => handleNavigate('library')} />}
-        {view === 'achievements' && <Achievements onBack={() => handleNavigate('library')} />}
+        {view === 'stats' && <Stats onBack={handleBackToLibrary} />}
+        {view === 'gym' && <Gym onBack={handleBackToLibrary} />}
+        {view === 'achievements' && <Achievements onBack={handleBackToLibrary} />}
       </Suspense>
       </ViewErrorBoundary>
 
