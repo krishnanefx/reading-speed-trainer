@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { ReaderEngine } from '../reader/ReaderEngine';
 
 interface UseReaderProps {
     text: string;
@@ -7,84 +8,52 @@ interface UseReaderProps {
 }
 
 export const useReader = ({ text, wpm, chunkSize = 1 }: UseReaderProps) => {
-    const words = useMemo(() => text.split(/\s+/).filter(w => w.length > 0), [text]);
-    const [currentIndex, setCurrentIndex] = useState(0);
-    const [isPlaying, setIsPlaying] = useState(false);
-    const timerRef = useRef<number | null>(null);
-    const sessionStartRef = useRef<number | null>(null);
-    const logicalIndexRef = useRef(0);
-
-    const togglePlay = useCallback(() => {
-        if (words.length === 0) return;
-        setIsPlaying(prev => !prev);
-    }, [words.length]);
-
-    const reset = useCallback(() => {
-        setCurrentIndex(0);
-        setIsPlaying(false);
-    }, []);
-
-    const seek = useCallback((index: number) => {
-        setCurrentIndex(index);
-    }, []);
+    const [engine] = useState(() => new ReaderEngine({ text, wpm, chunkSize }));
+    const [snapshot, setSnapshot] = useState(() => engine.getSnapshot());
 
     useEffect(() => {
-        if (!isPlaying) {
-            if (timerRef.current) clearTimeout(timerRef.current);
-            timerRef.current = null;
-            sessionStartRef.current = null;
-            return;
-        }
+        return engine.subscribe(setSnapshot);
+    }, [engine]);
 
-        if (words.length === 0) return;
+    const togglePlay = useCallback(() => {
+        engine.togglePlay();
+    }, [engine]);
 
-        if (sessionStartRef.current === null) {
-            sessionStartRef.current = performance.now();
-            logicalIndexRef.current = currentIndex;
-        }
+    const reset = useCallback(() => {
+        engine.reset();
+    }, [engine]);
 
-        const tick = () => {
-            const start = sessionStartRef.current;
-            if (start === null) return;
-            const elapsedMs = performance.now() - start;
-            const chunksPerMs = wpm / 60000 / chunkSize;
-            const baselineChunksElapsed = Math.floor(elapsedMs * chunksPerMs);
-            const targetIndex = baselineChunksElapsed * chunkSize + logicalIndexRef.current;
+    const seek = useCallback((index: number) => {
+        engine.seek(index);
+    }, [engine]);
 
-            const safeIndex = Math.min(targetIndex, Math.max(0, words.length - 1));
-            setCurrentIndex((prev) => (safeIndex > prev ? safeIndex : prev));
+    const setIsPlaying = useCallback((isPlaying: boolean) => {
+        engine.setPlaying(isPlaying);
+    }, [engine]);
 
-            if (safeIndex >= words.length - 1) {
-                setIsPlaying(false);
-                return;
-            }
+    useEffect(() => {
+        engine.setText(text);
+    }, [engine, text]);
 
-            const currentChunkStr = words.slice(safeIndex, safeIndex + chunkSize).join(' ');
-            const lastChar = currentChunkStr.slice(-1);
-            let factor = 1.0;
-            if (['.', '!', '?'].includes(lastChar)) factor = 1.8;
-            else if ([',', ';', ':'].includes(lastChar)) factor = 1.4;
-            else if (currentChunkStr.length > 12) factor = 1.15;
+    useEffect(() => {
+        engine.setWpm(wpm);
+    }, [engine, wpm]);
 
-            const baseDelay = (60 / wpm) * 1000 * chunkSize;
-            timerRef.current = window.setTimeout(tick, Math.max(8, Math.round(baseDelay * factor)));
-        };
+    useEffect(() => {
+        engine.setChunkSize(chunkSize);
+    }, [engine, chunkSize]);
 
-        timerRef.current = window.setTimeout(tick, 0);
-
+    useEffect(() => {
         return () => {
-            if (timerRef.current) clearTimeout(timerRef.current);
+            engine.destroy();
         };
-    }, [isPlaying, words, wpm, chunkSize, currentIndex]);
-
-    // Compute displayed text
-    const currentDisplay = words.slice(currentIndex, currentIndex + chunkSize).join(' ');
+    }, [engine]);
 
     return {
-        words,
-        currentIndex,
-        isPlaying,
-        currentDisplay,
+        words: snapshot.words,
+        currentIndex: snapshot.currentIndex,
+        isPlaying: snapshot.isPlaying,
+        currentDisplay: snapshot.currentDisplay,
         togglePlay,
         reset,
         seek,
