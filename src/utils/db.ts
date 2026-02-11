@@ -76,6 +76,10 @@ export interface SyncItem {
     id?: number;
     type: 'UPDATE_PROGRESS' | 'SYNC_SESSION' | 'SYNC_BOOK' | 'DELETE_BOOK';
     payload: SyncPayload;
+    key?: string;
+    retryAttempts?: number;
+    nextRetryAt?: number | null;
+    lastError?: string | null;
     timestamp: number;
 }
 
@@ -118,8 +122,73 @@ const normalizeErrorMessage = (error: unknown): string => {
     return 'Sync failed';
 };
 
+const getSyncRetryDelayMs = (attempt: number): number => {
+    return Math.min(BASE_SYNC_RETRY_MS * (2 ** Math.max(0, attempt - 1)), 60_000);
+};
+
+const getSyncItemKey = (type: SyncItem['type'], payload: SyncPayload): string => {
+    if (type === 'UPDATE_PROGRESS') return 'UPDATE_PROGRESS:default';
+    if (type === 'SYNC_BOOK') return `SYNC_BOOK:${(payload as Book).id}`;
+    if (type === 'DELETE_BOOK') return `DELETE_BOOK:${payload as string}`;
+    return `SYNC_SESSION:${(payload as Session).id}`;
+};
+
+const normalizeSyncItem = (item: SyncItem): SyncItem => {
+    const retryAttempts = toSafeNumber(item.retryAttempts, 0, 0, 1000);
+    const rawNextRetryAt = item.nextRetryAt;
+    const nextRetryAt = typeof rawNextRetryAt === 'number' && Number.isFinite(rawNextRetryAt) ? rawNextRetryAt : null;
+    const lastError = typeof item.lastError === 'string' ? item.lastError : null;
+
+    return {
+        ...item,
+        key: item.key || getSyncItemKey(item.type, item.payload),
+        retryAttempts,
+        nextRetryAt,
+        lastError,
+    };
+};
+
+const computeQueueStatus = (queue: SyncItem[]) => {
+    const retryAttempts = queue.reduce((maxAttempts, item) => {
+        return Math.max(maxAttempts, toSafeNumber(item.retryAttempts, 0, 0, 1000));
+    }, 0);
+
+    const nextRetryAt = queue.reduce<number | null>((next, item) => {
+        const candidate = typeof item.nextRetryAt === 'number' && Number.isFinite(item.nextRetryAt) ? item.nextRetryAt : null;
+        if (candidate === null) return next;
+        if (next === null || candidate < next) return candidate;
+        return next;
+    }, null);
+
+    const lastError = queue.reduce<string | null>((latest, item) => {
+        if (typeof item.lastError === 'string' && item.lastError.length > 0) return item.lastError;
+        return latest;
+    }, null);
+
+    return { retryAttempts, nextRetryAt, lastError };
+};
+
+const syncQueueRetryTimer = () => retryTimer;
+
+const scheduleNextQueueRetry = (nextRetryAt: number | null) => {
+    if (retryTimer) {
+        clearTimeout(retryTimer);
+        retryTimer = null;
+    }
+
+    if (nextRetryAt === null || nextRetryAt <= Date.now()) {
+        return;
+    }
+
+    const delay = Math.max(100, nextRetryAt - Date.now());
+    retryTimer = setTimeout(async () => {
+        retryTimer = null;
+        await processSyncQueue();
+    }, delay);
+};
+
 const scheduleSyncRetry = (reason: unknown) => {
-    if (retryTimer || syncStatus.retryAttempts >= MAX_SYNC_RETRY_ATTEMPTS) {
+    if (syncQueueRetryTimer() || syncStatus.retryAttempts >= MAX_SYNC_RETRY_ATTEMPTS) {
         updateSyncStatus({ phase: 'failed', lastError: normalizeErrorMessage(reason), nextRetryAt: null });
         return;
     }
@@ -157,7 +226,7 @@ const getSessionUserId = async (): Promise<string | null> => {
 };
 
 const dedupeSyncQueue = (items: SyncItem[]): SyncItem[] => {
-    const ordered = [...items].sort((a, b) => {
+    const ordered = items.map(normalizeSyncItem).sort((a, b) => {
         const aId = typeof a.id === 'number' ? a.id : 0;
         const bId = typeof b.id === 'number' ? b.id : 0;
         return a.timestamp - b.timestamp || aId - bId;
@@ -165,12 +234,7 @@ const dedupeSyncQueue = (items: SyncItem[]): SyncItem[] => {
 
     const byKey = new Map<string, SyncItem>();
     for (const item of ordered) {
-        let key = `${item.type}:${item.timestamp}`;
-        if (item.type === 'UPDATE_PROGRESS') key = 'UPDATE_PROGRESS:default';
-        if (item.type === 'SYNC_BOOK') key = `SYNC_BOOK:${(item.payload as Book).id}`;
-        if (item.type === 'DELETE_BOOK') key = `DELETE_BOOK:${item.payload as string}`;
-        if (item.type === 'SYNC_SESSION') key = `SYNC_SESSION:${(item.payload as Session).id}`;
-        byKey.set(key, item);
+        byKey.set(item.key || getSyncItemKey(item.type, item.payload), item);
     }
 
     return [...byKey.values()].sort((a, b) => {
@@ -178,6 +242,46 @@ const dedupeSyncQueue = (items: SyncItem[]): SyncItem[] => {
         const bId = typeof b.id === 'number' ? b.id : 0;
         return a.timestamp - b.timestamp || aId - bId;
     });
+};
+
+const compactSyncQueue = async () => {
+    const db = await initDB();
+    const deduped = dedupeSyncQueue((await db.getAll(SYNC_QUEUE_STORE)) as SyncItem[]);
+    const tx = db.transaction(SYNC_QUEUE_STORE, 'readwrite');
+    await tx.store.clear();
+    for (const item of deduped) {
+        const persisted = { ...item };
+        delete persisted.id;
+        await tx.store.put(persisted);
+    }
+    await tx.done;
+};
+
+const updateSyncStatusFromQueue = async () => {
+    const db = await initDB();
+    const queue = dedupeSyncQueue((await db.getAll(SYNC_QUEUE_STORE)) as SyncItem[]);
+    const queueSize = queue.length;
+    if (queueSize === 0) {
+        updateSyncStatus({
+            queueSize: 0,
+            retryAttempts: 0,
+            nextRetryAt: null,
+            lastError: null,
+            phase: syncStatus.phase === 'syncing' ? 'syncing' : 'idle',
+        });
+        scheduleNextQueueRetry(null);
+        return;
+    }
+
+    const { retryAttempts, nextRetryAt, lastError } = computeQueueStatus(queue);
+    updateSyncStatus({
+        queueSize,
+        retryAttempts,
+        nextRetryAt,
+        lastError,
+        phase: retryAttempts > 0 ? 'failed' : (syncStatus.phase === 'syncing' ? 'syncing' : 'idle'),
+    });
+    scheduleNextQueueRetry(nextRetryAt);
 };
 
 const toSafeNumber = (value: unknown, fallback: number, min = Number.NEGATIVE_INFINITY, max = Number.POSITIVE_INFINITY) => {
@@ -314,9 +418,23 @@ export const initDB = async () => {
 // Queue Helper
 export const addToSyncQueue = async (type: SyncItem['type'], payload: SyncPayload) => {
     const db = await initDB();
-    await db.put(SYNC_QUEUE_STORE, { type, payload, timestamp: Date.now() });
-    const queued = await db.count(SYNC_QUEUE_STORE);
-    updateSyncStatus({ queueSize: queued });
+    const key = getSyncItemKey(type, payload);
+    const all = dedupeSyncQueue((await db.getAll(SYNC_QUEUE_STORE)) as SyncItem[]);
+    const existing = all.find((item) => item.key === key);
+
+    await db.put(SYNC_QUEUE_STORE, {
+        id: existing?.id,
+        type,
+        payload,
+        key,
+        timestamp: Date.now(),
+        retryAttempts: 0,
+        nextRetryAt: null,
+        lastError: null,
+    });
+
+    await compactSyncQueue();
+    await updateSyncStatusFromQueue();
 };
 
 // Cloud Sync Helpers with Queue Strategy
@@ -608,12 +726,14 @@ export const syncFromCloud = async () => {
 
 export const processSyncQueue = async () => {
     if (!isCloudAvailable() || !navigator.onLine) {
+        await updateSyncStatusFromQueue();
         updateSyncStatus({ phase: 'idle' });
         return;
     }
 
     const db = await initDB();
-    const queue = dedupeSyncQueue(await db.getAll(SYNC_QUEUE_STORE));
+    await compactSyncQueue();
+    const queue = dedupeSyncQueue((await db.getAll(SYNC_QUEUE_STORE)) as SyncItem[]);
     if (queue.length === 0) {
         updateSyncStatus({
             phase: 'idle',
@@ -628,33 +748,60 @@ export const processSyncQueue = async () => {
     updateSyncStatus({ phase: 'syncing', queueSize: queue.length, nextRetryAt: null });
 
     let failedCount = 0;
+    const now = Date.now();
     for (const item of queue) {
+        const normalized = normalizeSyncItem(item);
+        if (normalized.nextRetryAt && normalized.nextRetryAt > now) {
+            continue;
+        }
+
         let success = false;
         let hadError = false;
         try {
-            if (item.type === 'UPDATE_PROGRESS') {
-                success = await syncProgressToCloud(item.payload as UserProgress, false);
-            } else if (item.type === 'SYNC_SESSION') {
-                success = await syncSessionToCloud(item.payload as Session, false);
-            } else if (item.type === 'SYNC_BOOK') {
-                success = await syncBookToCloud(item.payload as Book, false);
-            } else if (item.type === 'DELETE_BOOK') {
-                success = await deleteBookFromCloud(item.payload as string, false);
+            if (normalized.type === 'UPDATE_PROGRESS') {
+                success = await syncProgressToCloud(normalized.payload as UserProgress, false);
+            } else if (normalized.type === 'SYNC_SESSION') {
+                success = await syncSessionToCloud(normalized.payload as Session, false);
+            } else if (normalized.type === 'SYNC_BOOK') {
+                success = await syncBookToCloud(normalized.payload as Book, false);
+            } else if (normalized.type === 'DELETE_BOOK') {
+                success = await deleteBookFromCloud(normalized.payload as string, false);
             }
         } catch (e) {
             hadError = true;
             failedCount += 1;
-            scheduleSyncRetry(e);
+            const attempt = toSafeNumber(normalized.retryAttempts, 0, 0, 1000) + 1;
+            const maxed = attempt >= MAX_SYNC_RETRY_ATTEMPTS;
+            const nextRetryAt = maxed ? null : Date.now() + getSyncRetryDelayMs(attempt);
+            await db.put(SYNC_QUEUE_STORE, {
+                ...normalized,
+                retryAttempts: attempt,
+                nextRetryAt,
+                lastError: normalizeErrorMessage(e),
+                timestamp: Date.now(),
+            });
         }
 
         if (success) {
-            if (item.id) await db.delete(SYNC_QUEUE_STORE, item.id);
+            if (normalized.id) await db.delete(SYNC_QUEUE_STORE, normalized.id);
         } else if (!hadError) {
             failedCount += 1;
+            const attempt = toSafeNumber(normalized.retryAttempts, 0, 0, 1000) + 1;
+            const maxed = attempt >= MAX_SYNC_RETRY_ATTEMPTS;
+            const nextRetryAt = maxed ? null : Date.now() + getSyncRetryDelayMs(attempt);
+            await db.put(SYNC_QUEUE_STORE, {
+                ...normalized,
+                retryAttempts: attempt,
+                nextRetryAt,
+                lastError: normalizeErrorMessage('Sync operation returned without success.'),
+                timestamp: Date.now(),
+            });
         }
     }
 
-    const remaining = dedupeSyncQueue(await db.getAll(SYNC_QUEUE_STORE)).length;
+    await compactSyncQueue();
+    const remainingQueue = dedupeSyncQueue((await db.getAll(SYNC_QUEUE_STORE)) as SyncItem[]);
+    const remaining = remainingQueue.length;
     if (failedCount === 0 && remaining === 0) {
         updateSyncStatus({
             phase: 'idle',
@@ -666,8 +813,15 @@ export const processSyncQueue = async () => {
         });
         return;
     }
-    updateSyncStatus({ queueSize: remaining });
-    scheduleSyncRetry(`Queued items remaining: ${remaining}`);
+    const { retryAttempts, nextRetryAt, lastError } = computeQueueStatus(remainingQueue);
+    updateSyncStatus({
+        phase: retryAttempts > 0 ? 'failed' : 'idle',
+        queueSize: remaining,
+        retryAttempts,
+        nextRetryAt,
+        lastError: lastError || (remaining > 0 ? `Queued items remaining: ${remaining}` : null),
+    });
+    scheduleNextQueueRetry(nextRetryAt);
 };
 
 export const saveBook = async (book: Book) => {
