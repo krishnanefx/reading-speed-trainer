@@ -6,6 +6,7 @@ import { useReader } from '../hooks/useReader';
 import type { Book } from '../utils/db';
 import { logSession, updateBookProgress } from '../utils/db';
 import { debounce } from '../utils/common';
+import './ReaderView.css';
 
 interface ReaderViewProps {
     book: Book;
@@ -240,43 +241,16 @@ const ReaderView: React.FC<ReaderViewProps> = ({
     return (
         <>
             {/* Navigation Bar */}
-            <nav className="reader-nav" style={{
-                opacity: isFocusMode ? 0 : 1,
-                pointerEvents: isFocusMode ? 'none' : 'auto',
-                display: 'flex',
-                alignItems: 'center',
-                marginBottom: '1rem',
-                transition: 'opacity 0.3s',
-                position: isFocusMode ? 'absolute' : 'relative',
-                zIndex: 10
-            }}>
-                <button onClick={onBack} className="btn-back" style={{
-                    background: 'transparent',
-                    border: 'none',
-                    color: 'var(--color-text-secondary)',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.5rem',
-                    fontSize: '1rem'
-                }}>
+            <nav className={`reader-nav ${isFocusMode ? 'is-hidden' : ''}`}>
+                <button onClick={onBack} className="reader-nav-btn">
                     ← Library
                 </button>
-                <div style={{ flex: 1, textAlign: 'center', fontWeight: 600, fontSize: '0.9rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                <div className="reader-title">
                     {book.title}
                 </div>
                 <button
                     onClick={() => setIsShortcutsOpen(true)}
-                    className="btn-back"
-                    style={{
-                        background: 'transparent',
-                        border: '1px solid rgba(255,255,255,0.15)',
-                        color: 'var(--color-text-secondary)',
-                        borderRadius: '999px',
-                        padding: '0.35rem 0.65rem',
-                        cursor: 'pointer',
-                        fontSize: '0.85rem'
-                    }}
+                    className="reader-shortcuts-btn"
                     title="Keyboard shortcuts (?)"
                     aria-label="Open keyboard shortcuts"
                 >
@@ -285,39 +259,13 @@ const ReaderView: React.FC<ReaderViewProps> = ({
             </nav>
 
             {/* Main Reader Area */}
-            <main className={`reader-main ${isFocusMode ? 'focus-active' : ''}`} style={{
-                display: 'flex',
-                flexDirection: 'column',
-                justifyContent: isFocusMode ? 'center' : 'flex-start',
-                flex: 1,
-                minHeight: isFocusMode ? '100vh' : 'auto',
-                paddingBottom: isFocusMode ? '0' : '280px',
-                transition: 'all 0.3s ease'
-            }}>
-                <div style={{ position: 'relative' }}>
+            <main className={`reader-main ${isFocusMode ? 'focus-active' : ''}`}>
+                <div className="reader-stage">
                     <Reader word={currentDisplay} font={font} bionicMode={initialBionicMode} fontSize={fontSize} />
 
                     <button
                         onClick={() => setIsFocusMode(!isFocusMode)}
-                        className="focus-btn"
-                        style={{
-                            position: 'absolute',
-                            top: '10px',
-                            right: '10px',
-                            background: isFocusMode ? 'var(--color-primary)' : 'rgba(255,255,255,0.08)',
-                            border: 'none',
-                            borderRadius: '50%',
-                            width: '40px',
-                            height: '40px',
-                            cursor: 'pointer',
-                            color: isFocusMode ? 'white' : 'var(--color-text-secondary)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            zIndex: 100,
-                            transition: 'all 0.2s',
-                            boxShadow: '0 2px 8px rgba(0,0,0,0.3)'
-                        }}
+                        className={`focus-btn ${isFocusMode ? 'active' : ''}`}
                         title="Toggle Focus Mode (Press 'F')"
                     >
                         <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -351,31 +299,10 @@ const ReaderView: React.FC<ReaderViewProps> = ({
 
                 {/* Minimal Focus Controls */}
                 {isFocusMode && (
-                    <div style={{
-                        position: 'fixed',
-                        bottom: '2rem',
-                        left: '50%',
-                        transform: 'translateX(-50%)',
-                        display: 'flex',
-                        gap: '1rem',
-                        zIndex: 100
-                    }}>
+                    <div className="focus-controls">
                         <button
                             onClick={togglePlay}
-                            style={{
-                                background: isPlaying ? 'var(--color-accent)' : 'var(--color-primary)',
-                                color: 'white',
-                                border: 'none',
-                                borderRadius: '50%',
-                                width: '72px',
-                                height: '72px',
-                                cursor: 'pointer',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                boxShadow: '0 4px 20px rgba(0,0,0,0.4)',
-                                transition: 'all 0.2s'
-                            }}
+                            className={`focus-play-btn ${isPlaying ? 'playing' : ''}`}
                         >
                             {isPlaying ? (
                                 <svg width="32" height="32" fill="currentColor" viewBox="0 0 24 24">
@@ -390,24 +317,6 @@ const ReaderView: React.FC<ReaderViewProps> = ({
                     </div>
                 )}
             </main>
-
-            {/* Local Styles for Mobile Responsiveness */}
-            <style>{`
-            @media (max-width: 640px) {
-              .reader-main {
-                padding-bottom: 320px !important;
-              }
-              
-              .focus-active {
-                padding-bottom: 100px !important;
-              }
-              
-              .focus-btn {
-                width: 48px !important;
-                height: 48px !important;
-              }
-            }
-      `}</style>
             <ShortcutsHelp isOpen={isShortcutsOpen} onClose={() => setIsShortcutsOpen(false)} />
         </>
     );

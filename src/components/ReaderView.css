@@ -1,0 +1,135 @@
+.reader-nav {
+  display: flex;
+  align-items: center;
+  margin-bottom: 1rem;
+  transition: opacity 0.3s;
+  position: relative;
+  z-index: 10;
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.reader-nav.is-hidden {
+  opacity: 0;
+  pointer-events: none;
+  position: absolute;
+}
+
+.reader-nav-btn {
+  background: transparent;
+  border: none;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1rem;
+}
+
+.reader-shortcuts-btn {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: var(--color-text-secondary);
+  border-radius: 999px;
+  padding: 0.35rem 0.65rem;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+.reader-title {
+  flex: 1;
+  text-align: center;
+  font-weight: 600;
+  font-size: 0.9rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.reader-main {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  flex: 1;
+  min-height: auto;
+  padding-bottom: 280px;
+  transition: all 0.3s ease;
+}
+
+.reader-main.focus-active {
+  justify-content: center;
+  min-height: 100vh;
+  padding-bottom: 0;
+}
+
+.reader-stage {
+  position: relative;
+}
+
+.focus-btn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: rgba(255, 255, 255, 0.08);
+  border: none;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  cursor: pointer;
+  color: var(--color-text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  transition: all 0.2s;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.focus-btn.active {
+  background: var(--color-primary);
+  color: white;
+}
+
+.focus-controls {
+  position: fixed;
+  bottom: 2rem;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 1rem;
+  z-index: 100;
+}
+
+.focus-play-btn {
+  background: var(--color-primary);
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 72px;
+  height: 72px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+  transition: all 0.2s;
+}
+
+.focus-play-btn.playing {
+  background: var(--color-accent);
+}
+
+@media (max-width: 640px) {
+  .reader-main {
+    padding-bottom: 320px;
+  }
+
+  .reader-main.focus-active {
+    padding-bottom: 100px;
+  }
+
+  .focus-btn {
+    width: 48px;
+    height: 48px;
+  }
+}
