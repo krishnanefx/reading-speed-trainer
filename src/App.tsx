@@ -17,6 +17,7 @@ import { checkNewAchievements } from './utils/achievements';
 import { isCloudSyncEnabled, supabase } from './lib/supabase';
 import { useNetwork } from './hooks/useNetwork';
 import { processSyncQueue, subscribeSyncStatus } from './utils/db';
+import { perfLog } from './utils/perf';
 
 type AppView = 'library' | 'reader' | 'settings' | 'stats' | 'gym' | 'achievements';
 const APP_VIEWS: readonly AppView[] = ['library', 'reader', 'settings', 'stats', 'gym', 'achievements'];
@@ -217,13 +218,18 @@ function App() {
   }, []);
 
   const handleSelectBook = useCallback(async (bookId: string) => {
+    const start = performance.now();
     const book = await getBook(bookId);
+    perfLog('open_book.fetch', performance.now() - start, { found: Boolean(book) });
     if (!book) {
       toast.error('Could not open this book.');
       return;
     }
     setCurrentBook(book);
     setView('reader');
+    requestAnimationFrame(() => {
+      perfLog('open_book.total_to_view', performance.now() - start, { bookId });
+    });
   }, []);
 
   const handleNavigate = useCallback((newView: string) => {
