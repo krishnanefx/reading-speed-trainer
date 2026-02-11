@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, lazy, Suspense, useRef } from 'react';
+import { useState, useEffect, useCallback, lazy, Suspense } from 'react';
 import { Toaster, toast } from 'react-hot-toast';
 const Library = lazy(() => import('./components/Library'));
 const Header = lazy(() => import('./components/Header'));
@@ -21,6 +21,7 @@ import { perfLog } from './utils/perf';
 import { ViewErrorBoundary } from './components/ViewErrorBoundary';
 import { loadAppSettings } from './utils/settings';
 import { recordSessionAndUpdateProgress } from './utils/gamification';
+import { useHashViewSync } from './hooks/useHashViewSync';
 
 type AppView = 'library' | 'reader' | 'settings' | 'stats' | 'gym' | 'achievements';
 type AppPhase = 'boot' | 'hydrating' | 'ready' | 'offline' | 'error';
@@ -35,7 +36,6 @@ function App() {
   const [view, setView] = useState<AppView>('library');
   const [phase, setPhase] = useState<AppPhase>('boot');
   const [currentBook, setCurrentBook] = useState<Book | null>(null);
-  const isApplyingHashFromViewRef = useRef(false);
 
   // User Session State
   const [sessionUser, setSessionUser] = useState<{ id: string } | null>(null);
@@ -177,37 +177,14 @@ function App() {
     setCurrentBook(null);
   }, []);
 
-  // Hash Navigation Support
-  useEffect(() => {
-    const handleHashChange = () => {
-      if (isApplyingHashFromViewRef.current) {
-        isApplyingHashFromViewRef.current = false;
-        return;
-      }
-      const hash = window.location.hash.slice(1);
-      if (hash === 'reader') {
-        if (!currentBook) {
-          window.location.hash = 'library';
-          setView('library');
-        } else {
-          setView('reader');
-        }
-      } else if (isAppView(hash)) {
-        setView(hash);
-      }
-    };
-    window.addEventListener('hashchange', handleHashChange);
-    return () => window.removeEventListener('hashchange', handleHashChange);
-  }, [currentBook]);
-
-  useEffect(() => {
-    const hash = window.location.hash.slice(1);
-    if (hash !== view) {
-      // Only update hash if different to avoid loop/scroll issues
-      isApplyingHashFromViewRef.current = true;
-      window.location.hash = view;
-    }
-  }, [view]);
+  useHashViewSync({
+    view,
+    setView,
+    isView: isAppView,
+    readerView: 'reader',
+    fallbackView: 'library',
+    canEnterReader: Boolean(currentBook),
+  });
 
   return (
     <div className="container app-container">
