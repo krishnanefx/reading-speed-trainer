@@ -207,21 +207,21 @@ function App() {
     }
   };
 
-  const handleUpdateSettings = (settings: { wpm?: number }) => {
+  const handleUpdateSettings = useCallback((settings: { wpm?: number }) => {
     // Optional: Update default WPM if user changes it significantly?
     // For now, we trust ReaderView handles Book WPM. 
     // If we want to persist last used WPM as default:
     if (settings.wpm) {
       // setDefaultWpm(settings.wpm); // Uncomment if we want "sticky" global WPM
     }
-  };
+  }, []);
 
-  const handleSelectBook = (book: Book) => {
+  const handleSelectBook = useCallback((book: Book) => {
     setCurrentBook(book);
     // Determine initial WPM: Book WPM > Default WPM
     // Book WPM might be undefined if new.
     setView('reader');
-  };
+  }, []);
 
   const handleNavigate = useCallback((newView: string) => {
     if (!isAppView(newView)) return;

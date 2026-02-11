@@ -657,7 +657,13 @@ export const getBook = async (id: string): Promise<Book | undefined> => {
     return undefined;
 };
 
-export const updateBookProgress = async (id: string, progress: number, currentIndex?: number, wpm?: number) => {
+export const updateBookProgress = async (
+    id: string,
+    progress: number,
+    currentIndex?: number,
+    wpm?: number,
+    sync = true
+) => {
     const db = await initDB();
     const book = await db.get(BOOKS_STORE, id);
     if (book) {
@@ -666,7 +672,9 @@ export const updateBookProgress = async (id: string, progress: number, currentIn
         book.lastRead = Date.now();
         if (wpm) book.wpm = toSafeNumber(wpm, book.wpm || 300, 60, 2000);
         await db.put(BOOKS_STORE, book);
-        await syncBookToCloud(sanitizeBook(book));
+        if (sync) {
+            await syncBookToCloud(sanitizeBook(book));
+        }
     }
 };
 
