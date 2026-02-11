@@ -54,5 +54,5 @@
 ## Phase 7 - Repo Cleanup (New)
 - [x] Audit root files and archive docs no longer used by current architecture.
 - [x] Add `docs/` structure with clear active vs legacy references.
-- [ ] Remove dead code paths, unused components, and stale comments.
+- [~] Remove dead code paths, unused components, and stale comments (partial: removed `onUpdateSettings` no-op path and stale DB comments).
 - [x] Add a `CONTRIBUTING.md` with coding/runtime/perf guardrails.

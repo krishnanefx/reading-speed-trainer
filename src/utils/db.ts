@@ -18,8 +18,8 @@ const BASE_SYNC_RETRY_MS = 5_000;
 export interface Book {
     id: string;
     title: string;
-    content: string; // Changed from 'text' to 'content'
-    progress: number; // 0 to 1
+    content: string;
+    progress: number;
     totalWords: number;
     cover?: string; // Base64 image string
     // Legacy fields
@@ -73,7 +73,7 @@ export interface UserProgress {
 type SyncPayload = UserProgress | Session | Book | string;
 
 export interface SyncItem {
-    id?: number; // Auto-incremented
+    id?: number;
     type: 'UPDATE_PROGRESS' | 'SYNC_SESSION' | 'SYNC_BOOK' | 'DELETE_BOOK';
     payload: SyncPayload;
     timestamp: number;
@@ -288,7 +288,7 @@ const mergeProgress = (local: UserProgress, cloud: UserProgress): UserProgress =
 
 export const initDB = async () => {
     return openDB(DB_NAME, DB_VERSION, {
-        upgrade(db) { // Removed oldVersion, newVersion, transaction from signature
+        upgrade(db) {
             if (!db.objectStoreNames.contains(STORE_NAME)) {
                 db.createObjectStore(STORE_NAME, { keyPath: 'id' });
             }
@@ -805,7 +805,7 @@ export const logSession = async (session: Session) => {
 
 export const getSessions = async (): Promise<Session[]> => {
     const db = await initDB();
-    return db.getAll(SESSIONS_STORE); // Changed from getAllFromIndex to getAll
+    return db.getAll(SESSIONS_STORE);
 };
 
 export const clearSessions = async () => {
@@ -824,15 +824,11 @@ export const exportUserData = async (): Promise<string> => {
         timestamp: Date.now(),
         progress,
         sessions,
-        books: books.map(b => ({ ...b, cover: undefined })) // Optional: exclude large covers to keep file size small? keeping for now but good consideration
+        books: books.map(b => ({ ...b, cover: undefined }))
     };
-
-    // Actually, users probably want their books too.
-    // If books have large base64 covers, this file could be huge. 
-    // Let's include everything for a full backup.
     return JSON.stringify({
         ...data,
-        books // Overwrite with full book data
+        books
     });
 };
 
