@@ -919,13 +919,15 @@ export const saveBook = async (book: Book) => {
 
 export const getBooks = async (): Promise<Book[]> => {
     const db = await initDB();
-    const books = await db.getAll(BOOKS_STORE);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return books.map((b: any) => ({
-        ...b,
-        content: b.content || b.text || '',
-        totalWords: toSafeNumber(b.totalWords, Math.max(0, Math.round(String(b.content || b.text || '').length / 5)), 0)
-    }));
+    const books = await db.getAll(BOOKS_STORE) as Partial<Book>[];
+    return books.map((book) => {
+        const content = String(book.content ?? book.text ?? '');
+        return {
+            ...sanitizeBook(book),
+            content,
+            totalWords: toSafeNumber(book.totalWords, Math.max(0, Math.round(content.length / 5)), 0)
+        };
+    });
 };
 
 export const getLibraryBooks = async (): Promise<LibraryBook[]> => {
