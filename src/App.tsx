@@ -20,6 +20,7 @@ import { processSyncQueue, subscribeSyncStatus } from './utils/db';
 import { perfLog } from './utils/perf';
 
 type AppView = 'library' | 'reader' | 'settings' | 'stats' | 'gym' | 'achievements';
+type AppPhase = 'boot' | 'hydrating' | 'ready' | 'error';
 const APP_VIEWS: readonly AppView[] = ['library', 'reader', 'settings', 'stats', 'gym', 'achievements'];
 
 const isAppView = (value: string): value is AppView => {
@@ -29,6 +30,7 @@ const isAppView = (value: string): value is AppView => {
 function App() {
   // Navigation State
   const [view, setView] = useState<AppView>('library');
+  const [phase, setPhase] = useState<AppPhase>('boot');
   const [currentBook, setCurrentBook] = useState<Book | null>(null);
 
   // User Session State
@@ -97,6 +99,7 @@ function App() {
   // Load Initial Data
   useEffect(() => {
     const loadData = async () => {
+      setPhase('hydrating');
       const loadedProgress = await getUserProgress();
 
       const prefWpm = loadedProgress.defaultWpm || parseInt(localStorage.getItem('defaultWpm') || '300');
@@ -123,8 +126,12 @@ function App() {
         // Update prefs if cloud is different
         if (postSync.defaultWpm) setDefaultWpm(postSync.defaultWpm);
       }
+      setPhase('ready');
     };
-    loadData();
+    loadData().catch(() => {
+      setPhase('error');
+      toast.error('App failed to initialize. Please refresh.');
+    });
   }, [sessionUser]);
 
   const refreshSettings = () => {
@@ -267,6 +274,12 @@ function App() {
 
   return (
     <div className="container" style={{ transition: 'all 0.5s ease' }}>
+      {phase !== 'ready' ? (
+        <div className="view-loader" role="status" aria-live="polite">
+          {phase === 'error' ? 'Initialization failed.' : 'Loading FlashRead...'}
+        </div>
+      ) : (
+        <>
       <Suspense fallback={<div className="view-loader" role="status" aria-live="polite">Loading view...</div>}>
         {/* Header only on main pages */}
         {view === 'library' && (
@@ -327,6 +340,8 @@ function App() {
         {/* Footer is global except reader (ReaderView handles its own layout/footer-less state) */}
         {view !== 'reader' && <Footer />}
       </Suspense>
+        </>
+      )}
     </div>
   );
 }
