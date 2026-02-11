@@ -67,6 +67,7 @@ const Library: React.FC<LibraryProps> = ({ onSelectBook }) => {
     const [quickPasteText, setQuickPasteText] = useState('');
     const [isIndexing, setIsIndexing] = useState(false);
     const [coverByBookId, setCoverByBookId] = useState<Record<string, string>>({});
+    const [importStatus, setImportStatus] = useState<string>('');
 
     useEffect(() => {
         loadBooks();
@@ -134,44 +135,67 @@ const Library: React.FC<LibraryProps> = ({ onSelectBook }) => {
         };
     }, [books]);
 
+    const pause = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
     const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-        const file = event.target.files?.[0];
-        if (!file) return;
+        const files = Array.from(event.target.files || []);
+        if (files.length === 0) return;
 
+        const importToastId = 'library-import-progress';
         setIsLoading(true);
-        try {
-            // Check file type
-            const isEpub = file.name.toLowerCase().endsWith('.epub');
-            let content = '';
-            let cover: string | undefined = undefined;
+        setImportStatus('Preparing import...');
+        toast.loading(`Importing ${files.length} file${files.length > 1 ? 's' : ''}...`, { id: importToastId });
 
-            if (isEpub) {
-                const parsed = await parseEpub(file);
-                content = parsed.text;
-                cover = parsed.cover;
-            } else {
-                content = await file.text();
+        try {
+            for (let index = 0; index < files.length; index += 1) {
+                const file = files[index];
+                const isEpub = file.name.toLowerCase().endsWith('.epub');
+                let content = '';
+                let cover: string | undefined;
+                const prefix = `(${index + 1}/${files.length})`;
+
+                if (isEpub) {
+                    const parsed = await parseEpub(file, {
+                        onProgress: (processed, total) => {
+                            const status = `${prefix} Parsing EPUB ${processed}/${total}: ${file.name}`;
+                            setImportStatus(status);
+                            toast.loading(status, { id: importToastId });
+                        }
+                    });
+                    content = parsed.text;
+                    cover = parsed.cover;
+                } else {
+                    const status = `${prefix} Reading text: ${file.name}`;
+                    setImportStatus(status);
+                    toast.loading(status, { id: importToastId });
+                    content = await file.text();
+                }
+
+                const now = Date.now();
+                const newBook: Book = {
+                    id: `${now}-${index}`,
+                    title: file.name.replace(/\.(epub|txt)$/i, ''),
+                    content,
+                    progress: 0,
+                    totalWords: content.trim().split(/\s+/).length,
+                    cover,
+                    currentIndex: 0,
+                    lastRead: now,
+                    wpm: 300
+                };
+
+                await saveBook(newBook);
+                await pause(30);
             }
 
-            const newBook: Book = {
-                id: Date.now().toString(),
-                title: file.name.replace(/\.(epub|txt)$/i, ''),
-                content: content,
-                progress: 0,
-                totalWords: content.trim().split(/\s+/).length,
-                cover: cover,
-                currentIndex: 0,
-                lastRead: Date.now(),
-                wpm: 300
-            };
-
-            await saveBook(newBook);
-            loadBooks();
+            await loadBooks();
+            toast.success(`Imported ${files.length} file${files.length > 1 ? 's' : ''}.`, { id: importToastId });
         } catch (error) {
             devError('Error reading file:', error);
-            toast.error('Failed to read file.');
+            toast.error('Failed to import one or more files.', { id: importToastId });
         } finally {
             setIsLoading(false);
+            setImportStatus('');
             event.target.value = '';
         }
     };
@@ -262,6 +286,7 @@ const Library: React.FC<LibraryProps> = ({ onSelectBook }) => {
                         <input
                             type="file"
                             accept=".txt,.epub"
+                            multiple
                             onChange={handleFileUpload}
                             disabled={isLoading}
                             className="hidden-file-input"
@@ -269,6 +294,11 @@ const Library: React.FC<LibraryProps> = ({ onSelectBook }) => {
                     </label>
                 </div>
             </div>
+            {importStatus && (
+                <div className="empty-state">
+                    <p>{importStatus}</p>
+                </div>
+            )}
 
             <div className="books-grid">
                 {books.map(book => (

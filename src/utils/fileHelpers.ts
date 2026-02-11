@@ -4,8 +4,16 @@ const MAX_EPUB_SIZE_BYTES = 20 * 1024 * 1024; // 20MB safety cap
 
 interface WorkerSuccess {
   ok: true;
+  kind: 'result';
   text: string;
   cover?: string;
+}
+
+interface WorkerProgress {
+  ok: true;
+  kind: 'progress';
+  processed: number;
+  total: number;
 }
 
 interface WorkerFailure {
@@ -13,7 +21,11 @@ interface WorkerFailure {
   error: string;
 }
 
-type WorkerResponse = WorkerSuccess | WorkerFailure;
+type WorkerResponse = WorkerSuccess | WorkerProgress | WorkerFailure;
+
+interface ParseEpubOptions {
+  onProgress?: (processed: number, total: number) => void;
+}
 
 const parseEpubOnMainThread = async (file: File): Promise<{ text: string; cover?: string }> => {
   const jszip = new JSZip();
@@ -98,7 +110,7 @@ const parseEpubOnMainThread = async (file: File): Promise<{ text: string; cover?
   return { text: texts.join('\n\n'), cover: coverImage };
 };
 
-export const parseEpub = async (file: File): Promise<{ text: string; cover?: string }> => {
+export const parseEpub = async (file: File, options?: ParseEpubOptions): Promise<{ text: string; cover?: string }> => {
   if (file.size > MAX_EPUB_SIZE_BYTES) {
     throw new Error('EPUB file is too large. Please use a file under 20MB.');
   }
@@ -109,12 +121,22 @@ export const parseEpub = async (file: File): Promise<{ text: string; cover?: str
     try {
       const arrayBuffer = await file.arrayBuffer();
       const result = await new Promise<WorkerResponse>((resolve, reject) => {
-        const timeoutId = window.setTimeout(() => {
+        const armTimeout = () => window.setTimeout(() => {
           worker.terminate();
           reject(new Error('EPUB parsing timed out. Try a smaller file.'));
         }, 60_000);
+        let timeoutId = armTimeout();
+        const resetTimeout = () => {
+          window.clearTimeout(timeoutId);
+          timeoutId = armTimeout();
+        };
 
         worker.onmessage = (event: MessageEvent<WorkerResponse>) => {
+          if (event.data.ok && event.data.kind === 'progress') {
+            options?.onProgress?.(event.data.processed, event.data.total);
+            resetTimeout();
+            return;
+          }
           window.clearTimeout(timeoutId);
           resolve(event.data);
         };
@@ -128,6 +150,9 @@ export const parseEpub = async (file: File): Promise<{ text: string; cover?: str
 
       if (!result.ok) {
         throw new Error(result.error);
+      }
+      if (result.kind !== 'result') {
+        throw new Error('Unexpected EPUB parser response.');
       }
       return { text: result.text, cover: result.cover };
     } catch {
