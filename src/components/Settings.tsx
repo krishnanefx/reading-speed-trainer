@@ -3,6 +3,7 @@ import { getUserProgress, updateUserProgress, exportUserData, importUserData } f
 import { Auth } from './Auth';
 import { toast } from 'react-hot-toast';
 import { devError } from '../utils/logger';
+import './Settings.css';
 
 interface SettingsProps {
     onBack: () => void;
@@ -104,7 +105,7 @@ export const Settings: React.FC<SettingsProps> = ({ onBack, updateTheme }) => {
             <div className="settings-header">
                 <button className="btn-back" onClick={onBack}>← Back</button>
                 <h2>Settings</h2>
-                <div style={{ width: '60px' }}></div>
+                <div className="settings-header-spacer"></div>
             </div>
 
             <div className="settings-content">
@@ -137,7 +138,7 @@ export const Settings: React.FC<SettingsProps> = ({ onBack, updateTheme }) => {
                 <div className="setting-item">
                     <label>Visual Helpers</label>
 
-                    <div className="toggle-row" onClick={() => setBionicMode(!bionicMode)} style={{ marginBottom: '1rem' }}>
+                    <div className="toggle-row spaced" onClick={() => setBionicMode(!bionicMode)}>
                         <div className={`checkbox ${bionicMode ? 'checked' : ''}`}></div>
                         <span>Bionic Reading (Highlight start of words)</span>
                     </div>
@@ -185,9 +186,8 @@ export const Settings: React.FC<SettingsProps> = ({ onBack, updateTheme }) => {
                         {['sans', 'serif', 'mono'].map(f => (
                             <button
                                 key={f}
-                                className={`btn-option ${defaultFont === f ? 'active' : ''}`}
+                                className={`btn-option font-option ${defaultFont === f ? 'active' : ''} ${f === 'mono' ? 'font-mono' : f === 'serif' ? 'font-serif' : 'font-sans'}`}
                                 onClick={() => setDefaultFont(f)}
-                                style={{ fontFamily: f === 'mono' ? 'monospace' : f === 'serif' ? 'serif' : 'sans-serif', textTransform: 'capitalize' }}
                             >
                                 {f}
                             </button>
@@ -216,17 +216,17 @@ export const Settings: React.FC<SettingsProps> = ({ onBack, updateTheme }) => {
 
                 <div className="setting-item">
                     <label>Manual Backup</label>
-                    <p style={{ fontSize: '0.85rem', color: 'var(--color-text-secondary)', marginBottom: '1rem' }}>
+                    <p className="backup-description">
                         Save your progress and books to a file, or restore from a backup.
                     </p>
                     <div className="chunk-options">
-                        <button className="btn-option" onClick={handleExport} style={{ width: 'auto', padding: '0.75rem 1.5rem' }}>
+                        <button className="btn-option btn-option-inline" onClick={handleExport}>
                             Download Backup
                         </button>
-                        <button className="btn-option" onClick={() => document.getElementById('import-file')?.click()} style={{ width: 'auto', padding: '0.75rem 1.5rem' }}>
+                        <button className="btn-option btn-option-inline" onClick={() => document.getElementById('import-file')?.click()}>
                             Restore Backup
                         </button>
-                        <button className="btn-option active" onClick={async () => {
+                        <button className="btn-option active btn-option-inline" onClick={async () => {
                             const { getBooks, saveBook, syncFromCloud } = await import('../utils/db');
                             const books = await getBooks();
                             for (const book of books) {
@@ -234,14 +234,14 @@ export const Settings: React.FC<SettingsProps> = ({ onBack, updateTheme }) => {
                             }
                             await syncFromCloud(); // Pull any others
                             toast.success(`Synced ${books.length} books to cloud.`);
-                        }} style={{ width: 'auto', padding: '0.75rem 1.5rem' }}>
+                        }}>
                             Force Cloud Sync
                         </button>
                         <input
                             id="import-file"
                             type="file"
                             accept=".json"
-                            style={{ display: 'none' }}
+                            className="hidden-file-input"
                             onChange={handleImport}
                         />
                     </div>
@@ -249,177 +249,6 @@ export const Settings: React.FC<SettingsProps> = ({ onBack, updateTheme }) => {
 
                 <button className="btn-save" onClick={handleSave}>Save Settings</button>
             </div>
-
-            <style>{`
-        .settings-container {
-            max-width: 600px;
-            margin: 0 auto;
-            padding: 1rem;
-        }
-
-        .settings-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-bottom: 2rem;
-        }
-
-        .btn-back {
-            background: transparent;
-            border: none;
-            color: var(--color-text-secondary);
-            cursor: pointer;
-            font-size: 1rem;
-        }
-        
-        .section-title {
-            color: var(--color-primary);
-            font-size: 0.85rem;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            margin-bottom: 1.5rem;
-            margin-top: 0.5rem;
-            border-bottom: 1px solid rgba(255,255,255,0.1);
-            padding-bottom: 0.5rem;
-        }
-
-        .settings-content {
-            background: var(--color-surface);
-            padding: 2rem;
-            border-radius: var(--radius-lg);
-            border: 1px solid rgba(255,255,255,0.1);
-        }
-
-        .setting-item {
-            margin-bottom: 2rem;
-        }
-
-        .setting-item label {
-            display: block;
-            margin-bottom: 0.5rem;
-            font-weight: 600;
-        }
-
-        .theme-options {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 0.5rem;
-        }
-        
-        .btn-theme {
-            padding: 0.75rem;
-            border-radius: var(--radius-sm);
-            border: 2px solid transparent;
-            cursor: pointer;
-            font-weight: 600;
-            background: var(--color-bg); 
-            color: var(--color-text);
-            /* We can't easily preview pure CSS vars here without inline styles, 
-               so we'll rely on the class UI state */
-             opacity: 0.7;
-        }
-        
-        .btn-theme.active {
-            border-color: var(--color-primary);
-            opacity: 1;
-        }
-
-        .toggle-row {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-            cursor: pointer;
-        }
-        
-        .checkbox {
-            width: 24px;
-            height: 24px;
-            border-radius: 6px;
-            border: 2px solid var(--color-text-secondary);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: all 0.2s;
-        }
-        
-        .checkbox.checked {
-            background: var(--color-primary);
-            border-color: var(--color-primary);
-        }
-        
-        .checkbox.checked::after {
-            content: '✓';
-            color: white;
-            font-size: 14px;
-        }
-
-        .setting-control {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-        }
-
-        .setting-control input {
-            background: rgba(255,255,255,0.05);
-            border: 1px solid rgba(255,255,255,0.1);
-            padding: 0.5rem;
-            border-radius: var(--radius-sm);
-            color: var(--color-text);
-            font-size: 1.1rem;
-            width: 100px;
-        }
-
-        .unit {
-            color: var(--color-text-secondary);
-            font-size: 0.9rem;
-        }
-
-        .chunk-options {
-            display: flex;
-            gap: 0.5rem;
-        }
-
-        .btn-option {
-            flex: 1;
-            padding: 0.75rem;
-            background: rgba(255,255,255,0.05);
-            border-radius: var(--radius-sm);
-            color: var(--color-text-secondary);
-            border: 1px solid transparent;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        .btn-option:hover {
-            background: rgba(255,255,255,0.1);
-        }
-
-        .btn-option.active {
-            background: var(--color-primary);
-            color: white;
-            border-color: var(--color-primary);
-        }
-
-        .btn-save {
-            width: 100%;
-            padding: 1rem;
-            background: var(--color-primary);
-            color: white;
-            border: none;
-            border-radius: var(--radius-full);
-            font-weight: 700;
-            font-size: 1.1rem;
-            cursor: pointer;
-            transition: all 0.2s;
-            margin-top: 1rem;
-        }
-
-        .btn-save:hover {
-            background: var(--color-primary-hover);
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
-        }
-      `}</style>
         </div>
     );
 };
