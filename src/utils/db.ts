@@ -8,6 +8,8 @@ const STORE_NAME = 'progress';
 const SYNC_QUEUE_STORE = 'sync_queue';
 const DB_VERSION = 3; // Incremented for sync queue
 const MAX_IMPORT_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
+const MAX_SYNC_RETRY_ATTEMPTS = 6;
+const BASE_SYNC_RETRY_MS = 5_000;
 
 export interface Book {
     id: string;
@@ -62,7 +64,76 @@ export interface SyncItem {
     timestamp: number;
 }
 
+export type SyncPhase = 'idle' | 'syncing' | 'failed';
+
+export interface SyncStatus {
+    phase: SyncPhase;
+    queueSize: number;
+    retryAttempts: number;
+    nextRetryAt: number | null;
+    lastSyncedAt: number | null;
+    lastError: string | null;
+}
+
 const isCloudAvailable = () => Boolean(isCloudSyncEnabled && supabase);
+
+let syncStatus: SyncStatus = {
+    phase: 'idle',
+    queueSize: 0,
+    retryAttempts: 0,
+    nextRetryAt: null,
+    lastSyncedAt: null,
+    lastError: null,
+};
+let retryTimer: ReturnType<typeof setTimeout> | null = null;
+const syncListeners = new Set<(status: SyncStatus) => void>();
+
+const emitSyncStatus = () => {
+    for (const listener of syncListeners) listener(syncStatus);
+};
+
+const updateSyncStatus = (updates: Partial<SyncStatus>) => {
+    syncStatus = { ...syncStatus, ...updates };
+    emitSyncStatus();
+};
+
+const normalizeErrorMessage = (error: unknown): string => {
+    if (error instanceof Error && error.message) return error.message;
+    if (typeof error === 'string' && error.trim().length > 0) return error;
+    return 'Sync failed';
+};
+
+const scheduleSyncRetry = (reason: unknown) => {
+    if (retryTimer || syncStatus.retryAttempts >= MAX_SYNC_RETRY_ATTEMPTS) {
+        updateSyncStatus({ phase: 'failed', lastError: normalizeErrorMessage(reason), nextRetryAt: null });
+        return;
+    }
+
+    const nextAttempts = syncStatus.retryAttempts + 1;
+    const delay = Math.min(BASE_SYNC_RETRY_MS * (2 ** (nextAttempts - 1)), 60_000);
+    const nextRetryAt = Date.now() + delay;
+    updateSyncStatus({
+        phase: 'failed',
+        retryAttempts: nextAttempts,
+        nextRetryAt,
+        lastError: normalizeErrorMessage(reason),
+    });
+
+    retryTimer = setTimeout(async () => {
+        retryTimer = null;
+        await processSyncQueue();
+    }, delay);
+};
+
+export const getSyncStatus = (): SyncStatus => syncStatus;
+
+export const subscribeSyncStatus = (listener: (status: SyncStatus) => void) => {
+    syncListeners.add(listener);
+    listener(syncStatus);
+    return () => {
+        syncListeners.delete(listener);
+    };
+};
 
 const getSessionUserId = async (): Promise<string | null> => {
     if (!isCloudAvailable()) return null;
@@ -185,6 +256,8 @@ export const initDB = async () => {
 export const addToSyncQueue = async (type: SyncItem['type'], payload: SyncPayload) => {
     const db = await initDB();
     await db.put(SYNC_QUEUE_STORE, { type, payload, timestamp: Date.now() });
+    const queued = await db.count(SYNC_QUEUE_STORE);
+    updateSyncStatus({ queueSize: queued });
 };
 
 // Cloud Sync Helpers with Queue Strategy
@@ -326,139 +399,166 @@ export const syncFromCloud = async () => {
     if (!isCloudAvailable()) return false;
     const userId = await getSessionUserId();
     if (!userId) return false;
+    updateSyncStatus({ phase: 'syncing', lastError: null, nextRetryAt: null });
 
-    // 1. Get Progress
-    const { data: cloudProgress, error: progressError } = await supabase!
-        .from('user_progress')
-        .select('*')
-        .eq('user_id', userId)
-        .single();
+    try {
+        // 1. Get Progress
+        const { data: cloudProgress, error: progressError } = await supabase!
+            .from('user_progress')
+            .select('*')
+            .eq('user_id', userId)
+            .single();
 
-    if (progressError) {
-        console.error('Cloud Sync Error (Pull Progress):', progressError);
-    } else if (cloudProgress) {
-        const localProgress = await getUserProgress();
-        // Map back to local format
-        const mappedCloudProgress: UserProgress = {
-            id: 'default',
-            currentStreak: cloudProgress.current_streak,
-            longestStreak: cloudProgress.longest_streak,
-            totalWordsRead: cloudProgress.total_words_read,
-            peakWpm: cloudProgress.peak_wpm,
-            dailyGoal: cloudProgress.daily_goal,
-            gymBestTime: cloudProgress.gym_best_time,
-            unlockedAchievements: cloudProgress.unlocked_achievements || [],
-            lastReadDate: cloudProgress.last_read_date,
-            dailyGoalMetCount: 0,
-            defaultWpm: cloudProgress.default_wpm,
-            defaultChunkSize: cloudProgress.default_chunk_size,
-            defaultFont: cloudProgress.default_font,
-            theme: cloudProgress.theme,
-            autoAccelerate: cloudProgress.auto_accelerate,
-            bionicMode: cloudProgress.bionic_mode
-        };
-        const merged = mergeProgress(localProgress, mappedCloudProgress);
-        await updateUserProgress(merged, false);
-        await syncProgressToCloud(merged, false);
-    }
-
-    // 2. Get Books
-    const { data: cloudBooks, error: booksError } = await supabase!
-        .from('books')
-        .select('*')
-        .eq('user_id', userId);
-
-    if (booksError) {
-        console.error('Cloud Sync Error (Pull Books):', booksError);
-    } else if (cloudBooks) {
-        const db = await initDB();
-        const localBooks = await getBooks();
-        const localById = new Map(localBooks.map((book) => [book.id, book]));
-        const tx = db.transaction(BOOKS_STORE, 'readwrite');
-
-        for (const cb of cloudBooks) {
-            const localBook: Book = {
-                id: cb.id,
-                title: cb.title,
-                content: cb.content || '',
-                progress: cb.progress,
-                totalWords: cb.total_words,
-                currentIndex: cb.current_index,
-                lastRead: cb.last_read,
-                wpm: cb.wpm,
-                cover: cb.cover
+        if (progressError) {
+            throw progressError;
+        } else if (cloudProgress) {
+            const localProgress = await getUserProgress();
+            // Map back to local format
+            const mappedCloudProgress: UserProgress = {
+                id: 'default',
+                currentStreak: cloudProgress.current_streak,
+                longestStreak: cloudProgress.longest_streak,
+                totalWordsRead: cloudProgress.total_words_read,
+                peakWpm: cloudProgress.peak_wpm,
+                dailyGoal: cloudProgress.daily_goal,
+                gymBestTime: cloudProgress.gym_best_time,
+                unlockedAchievements: cloudProgress.unlocked_achievements || [],
+                lastReadDate: cloudProgress.last_read_date,
+                dailyGoalMetCount: 0,
+                defaultWpm: cloudProgress.default_wpm,
+                defaultChunkSize: cloudProgress.default_chunk_size,
+                defaultFont: cloudProgress.default_font,
+                theme: cloudProgress.theme,
+                autoAccelerate: cloudProgress.auto_accelerate,
+                bionicMode: cloudProgress.bionic_mode
             };
-            const existing = localById.get(localBook.id);
-            const localTs = existing?.lastRead || 0;
-            const cloudTs = localBook.lastRead || 0;
-            const keepLocal = Boolean(
-                existing && (localTs > cloudTs || (localTs === cloudTs && (existing.progress || 0) >= (localBook.progress || 0)))
-            );
-
-            if (keepLocal) {
-                await tx.store.put(existing!);
-                await syncBookToCloud(existing!, false);
-            } else {
-                await tx.store.put(sanitizeBook(localBook));
-            }
+            const merged = mergeProgress(localProgress, mappedCloudProgress);
+            await updateUserProgress(merged, false);
+            await syncProgressToCloud(merged, false);
         }
 
-        const cloudIds = new Set(cloudBooks.map((book) => String(book.id)));
-        for (const localBook of localBooks) {
-            if (!cloudIds.has(localBook.id)) {
-                await syncBookToCloud(localBook, false);
+        // 2. Get Books
+        const { data: cloudBooks, error: booksError } = await supabase!
+            .from('books')
+            .select('*')
+            .eq('user_id', userId);
+
+        if (booksError) {
+            throw booksError;
+        } else if (cloudBooks) {
+            const db = await initDB();
+            const localBooks = await getBooks();
+            const localById = new Map(localBooks.map((book) => [book.id, book]));
+            const tx = db.transaction(BOOKS_STORE, 'readwrite');
+
+            for (const cb of cloudBooks) {
+                const localBook: Book = {
+                    id: cb.id,
+                    title: cb.title,
+                    content: cb.content || '',
+                    progress: cb.progress,
+                    totalWords: cb.total_words,
+                    currentIndex: cb.current_index,
+                    lastRead: cb.last_read,
+                    wpm: cb.wpm,
+                    cover: cb.cover
+                };
+                const existing = localById.get(localBook.id);
+                const localTs = existing?.lastRead || 0;
+                const cloudTs = localBook.lastRead || 0;
+                const keepLocal = Boolean(
+                    existing && (localTs > cloudTs || (localTs === cloudTs && (existing.progress || 0) >= (localBook.progress || 0)))
+                );
+
+                if (keepLocal) {
+                    await tx.store.put(existing!);
+                    await syncBookToCloud(existing!, false);
+                } else {
+                    await tx.store.put(sanitizeBook(localBook));
+                }
             }
+
+            const cloudIds = new Set(cloudBooks.map((book) => String(book.id)));
+            for (const localBook of localBooks) {
+                if (!cloudIds.has(localBook.id)) {
+                    await syncBookToCloud(localBook, false);
+                }
+            }
+            await tx.done;
         }
-        await tx.done;
+
+        // 3. Get Sessions (Fix for empty sessions table)
+        const { data: cloudSessions, error: sessionsError } = await supabase!
+            .from('reading_sessions')
+            .select('*')
+            .eq('user_id', userId);
+
+        if (sessionsError) {
+            throw sessionsError;
+        } else if (cloudSessions) {
+            const db = await initDB();
+            const localSessions = await getSessions();
+            const localIds = new Set(localSessions.map((session) => session.id));
+            const tx = db.transaction(SESSIONS_STORE, 'readwrite');
+            for (const cs of cloudSessions) {
+                const localSession: Session = {
+                    id: cs.id,
+                    bookId: cs.book_id,
+                    durationSeconds: cs.duration_seconds,
+                    wordsRead: cs.words_read,
+                    averageWpm: cs.average_wpm,
+                    timestamp: cs.timestamp
+                };
+                await tx.store.put(sanitizeSession(localSession));
+            }
+            const cloudIds = new Set(cloudSessions.map((session) => String(session.id)));
+            for (const localSession of localSessions) {
+                if (!cloudIds.has(localSession.id) && localIds.has(localSession.id)) {
+                    await syncSessionToCloud(localSession, false);
+                }
+            }
+            await tx.done;
+        }
+
+        updateSyncStatus({
+            phase: 'idle',
+            retryAttempts: 0,
+            nextRetryAt: null,
+            lastError: null,
+            lastSyncedAt: Date.now(),
+        });
+        return true;
+    } catch (error) {
+        scheduleSyncRetry(error);
+        return false;
     }
-
-    // 3. Get Sessions (Fix for empty sessions table)
-    const { data: cloudSessions, error: sessionsError } = await supabase!
-        .from('reading_sessions')
-        .select('*')
-        .eq('user_id', userId);
-
-    if (sessionsError) {
-        console.error('Cloud Sync Error (Pull Sessions):', sessionsError);
-    } else if (cloudSessions) {
-        const db = await initDB();
-        const localSessions = await getSessions();
-        const localIds = new Set(localSessions.map((session) => session.id));
-        const tx = db.transaction(SESSIONS_STORE, 'readwrite');
-        for (const cs of cloudSessions) {
-            const localSession: Session = {
-                id: cs.id,
-                bookId: cs.book_id,
-                durationSeconds: cs.duration_seconds,
-                wordsRead: cs.words_read,
-                averageWpm: cs.average_wpm,
-                timestamp: cs.timestamp
-            };
-            await tx.store.put(sanitizeSession(localSession));
-        }
-        const cloudIds = new Set(cloudSessions.map((session) => String(session.id)));
-        for (const localSession of localSessions) {
-            if (!cloudIds.has(localSession.id) && localIds.has(localSession.id)) {
-                await syncSessionToCloud(localSession, false);
-            }
-        }
-        await tx.done;
-    }
-
-    return true;
 };
 
 export const processSyncQueue = async () => {
-    if (!isCloudAvailable() || !navigator.onLine) return;
+    if (!isCloudAvailable() || !navigator.onLine) {
+        updateSyncStatus({ phase: 'idle' });
+        return;
+    }
 
     const db = await initDB();
     const queue = dedupeSyncQueue(await db.getAll(SYNC_QUEUE_STORE));
-    if (queue.length === 0) return;
+    if (queue.length === 0) {
+        updateSyncStatus({
+            phase: 'idle',
+            queueSize: 0,
+            retryAttempts: 0,
+            nextRetryAt: null,
+            lastError: null,
+            lastSyncedAt: Date.now(),
+        });
+        return;
+    }
+    updateSyncStatus({ phase: 'syncing', queueSize: queue.length, nextRetryAt: null });
 
-    console.log(`Processing ${queue.length} offline items...`);
-
+    let failedCount = 0;
     for (const item of queue) {
         let success = false;
+        let hadError = false;
         try {
             if (item.type === 'UPDATE_PROGRESS') {
                 success = await syncProgressToCloud(item.payload as UserProgress, false);
@@ -470,13 +570,32 @@ export const processSyncQueue = async () => {
                 success = await deleteBookFromCloud(item.payload as string, false);
             }
         } catch (e) {
-            console.error('Error processing sync item:', e);
+            hadError = true;
+            failedCount += 1;
+            scheduleSyncRetry(e);
         }
 
         if (success) {
             if (item.id) await db.delete(SYNC_QUEUE_STORE, item.id);
+        } else if (!hadError) {
+            failedCount += 1;
         }
     }
+
+    const remaining = dedupeSyncQueue(await db.getAll(SYNC_QUEUE_STORE)).length;
+    if (failedCount === 0 && remaining === 0) {
+        updateSyncStatus({
+            phase: 'idle',
+            queueSize: 0,
+            retryAttempts: 0,
+            nextRetryAt: null,
+            lastError: null,
+            lastSyncedAt: Date.now(),
+        });
+        return;
+    }
+    updateSyncStatus({ queueSize: remaining });
+    scheduleSyncRetry(`Queued items remaining: ${remaining}`);
 };
 
 export const saveBook = async (book: Book) => {
