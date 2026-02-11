@@ -38,7 +38,7 @@
 - [x] Remove remaining inline styles/scripts and drop CSP `unsafe-inline`.
 - [x] Add strict runtime schema validation for all import/export formats.
 - [x] Add versioned import migrations with checksum validation.
-- [ ] Finalize Supabase RLS policy audit against every synced table.
+- [x] Finalize Supabase RLS policy audit against every synced table.
 - [x] Add React Error Boundaries around each lazy-loaded view so a crash in one view doesn't blank the entire app.
 
 ## Phase 5 - UX/Performance Polish
