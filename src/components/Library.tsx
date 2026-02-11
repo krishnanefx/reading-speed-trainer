@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { getLibraryBooks, saveBook, deleteBook } from '../utils/db';
+import { getBookCount, getLibraryBooks, rebuildLibraryBookIndex, saveBook, deleteBook } from '../utils/db';
 import type { Book, LibraryBook } from '../utils/db';
 import { parseEpub } from '../utils/fileHelpers';
 import { toast } from 'react-hot-toast';
@@ -62,6 +62,7 @@ const Library: React.FC<LibraryProps> = ({ onSelectBook }) => {
     const [bookToDelete, setBookToDelete] = useState<LibraryBook | null>(null);
     const [isQuickPasteOpen, setIsQuickPasteOpen] = useState(false);
     const [quickPasteText, setQuickPasteText] = useState('');
+    const [isIndexing, setIsIndexing] = useState(false);
 
     useEffect(() => {
         loadBooks();
@@ -69,6 +70,19 @@ const Library: React.FC<LibraryProps> = ({ onSelectBook }) => {
 
     const loadBooks = async () => {
         const loadedBooks = await getLibraryBooks();
+        if (loadedBooks.length === 0) {
+            const bookCount = await getBookCount();
+            if (bookCount === 0) {
+                setBooks([]);
+                return;
+            }
+            setIsIndexing(true);
+            await rebuildLibraryBookIndex();
+            const rebuiltBooks = await getLibraryBooks();
+            setBooks(rebuiltBooks.sort((a, b) => (b.lastRead || 0) - (a.lastRead || 0)));
+            setIsIndexing(false);
+            return;
+        }
         setBooks(loadedBooks.sort((a, b) => (b.lastRead || 0) - (a.lastRead || 0)));
     };
 
@@ -219,7 +233,13 @@ const Library: React.FC<LibraryProps> = ({ onSelectBook }) => {
                     />
                 ))}
 
-                {books.length === 0 && !isLoading && (
+                {isIndexing && (
+                    <div className="empty-state">
+                        <p>Optimizing library index...</p>
+                    </div>
+                )}
+
+                {books.length === 0 && !isLoading && !isIndexing && (
                     <div className="empty-state">
                         <p>No books yet. Add one to get started!</p>
                     </div>
