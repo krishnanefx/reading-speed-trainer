@@ -2,6 +2,7 @@ import { openDB } from 'idb';
 import { isCloudSyncEnabled, supabase } from '../lib/supabase';
 import { devError } from './logger';
 import { createCloudSyncHelpers } from './db/cloudSync';
+import { createImportExportHelpers } from './db/importExport';
 import {
     computeQueueStatus,
     dedupeSyncQueue,
@@ -643,82 +644,6 @@ export const clearSessions = async () => {
     await db.clear(SESSIONS_STORE);
 };
 
-// Data Export/Import for Manual Sync
-export const exportUserData = async (): Promise<string> => {
-    const progress = await getUserProgress();
-    const sessions = await getSessions();
-    const books = await getBooks();
-
-    const payload = {
-        progress,
-        sessions,
-        books
-    };
-    const data = {
-        version: 2,
-        timestamp: Date.now(),
-        payload,
-        checksum: computeChecksum(payload)
-    };
-    return JSON.stringify(data);
-};
-
-export const importUserData = async (jsonString: string): Promise<boolean> => {
-    try {
-        if (jsonString.length > MAX_IMPORT_SIZE_BYTES) {
-            throw new Error('Import file is too large.');
-        }
-
-        const parsed = JSON.parse(jsonString) as unknown;
-        const { progress: progressUpdate, sessions, books } = normalizeBackupPayload(parsed, MAX_IMPORT_ITEMS);
-
-        await updateUserProgress({
-            ...DEFAULT_PROGRESS,
-            ...progressUpdate,
-            id: 'default',
-            currentStreak: toSafeNumber(progressUpdate.currentStreak, 0, 0),
-            longestStreak: toSafeNumber(progressUpdate.longestStreak, 0, 0),
-            totalWordsRead: toSafeNumber(progressUpdate.totalWordsRead, 0, 0),
-            peakWpm: toSafeNumber(progressUpdate.peakWpm, 0, 0),
-            dailyGoal: toSafeNumber(progressUpdate.dailyGoal, 5000, 100, 500000),
-            dailyGoalMetCount: toSafeNumber(progressUpdate.dailyGoalMetCount, 0, 0),
-            unlockedAchievements: Array.isArray(progressUpdate.unlockedAchievements)
-                ? progressUpdate.unlockedAchievements.filter((item): item is string => typeof item === 'string')
-                : [],
-            lastReadDate: toDateKey(progressUpdate.lastReadDate),
-            gymBestTime: progressUpdate.gymBestTime ?? null,
-        });
-
-        const db = await initDB();
-
-        // Import Sessions
-        const txSession = db.transaction('sessions', 'readwrite');
-        for (const s of sessions) {
-            await txSession.store.put(sanitizeSession(s));
-        }
-        await txSession.done;
-
-        // Import Books
-        const txBooks = db.transaction([BOOKS_STORE, BOOK_META_STORE, BOOK_COVER_STORE], 'readwrite');
-        for (const b of books) {
-            const sanitized = sanitizeBook(b);
-            await txBooks.objectStore(BOOKS_STORE).put(sanitized);
-            await txBooks.objectStore(BOOK_META_STORE).put(toLibraryBook(sanitized));
-            if (sanitized.cover) {
-                await txBooks.objectStore(BOOK_COVER_STORE).put({ id: sanitized.id, cover: sanitized.cover });
-            } else {
-                await txBooks.objectStore(BOOK_COVER_STORE).delete(sanitized.id);
-            }
-        }
-        await txBooks.done;
-
-        return true;
-    } catch (e) {
-        devError('Import failed:', e);
-        return false;
-    }
-};
-
 export const getUserProgress = async (): Promise<UserProgress> => {
     const db = await initDB();
     const progress = await db.get(STORE_NAME, 'default');
@@ -735,3 +660,29 @@ export const updateUserProgress = async (updates: Partial<UserProgress>, sync = 
         await syncProgressToCloud(updated);
     }
 };
+
+const importExportHelpers = createImportExportHelpers({
+    maxImportSizeBytes: MAX_IMPORT_SIZE_BYTES,
+    maxImportItems: MAX_IMPORT_ITEMS,
+    sessionsStore: SESSIONS_STORE,
+    booksStore: BOOKS_STORE,
+    bookMetaStore: BOOK_META_STORE,
+    bookCoverStore: BOOK_COVER_STORE,
+    defaultProgress: DEFAULT_PROGRESS,
+    computeChecksum,
+    normalizeBackupPayload,
+    sanitizeSession,
+    sanitizeBook,
+    toLibraryBook,
+    toSafeNumber,
+    toDateKey,
+    getUserProgress,
+    getSessions,
+    getBooks,
+    updateUserProgress: async (updates: Partial<UserProgress>) => updateUserProgress(updates, false),
+    initDB,
+    logError: devError,
+});
+
+export const exportUserData = importExportHelpers.exportUserData;
+export const importUserData = importExportHelpers.importUserData;
