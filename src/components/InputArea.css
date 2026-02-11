@@ -1,0 +1,89 @@
+.input-container {
+  background: var(--color-surface);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 1.5rem;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-glass);
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.actions {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+}
+
+.input-title {
+  margin: 0;
+  font-size: 1.125rem;
+}
+
+.hidden-file-input {
+  display: none;
+}
+
+.input-container textarea {
+  width: 100%;
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-sm);
+  padding: 1rem;
+  font-size: 1rem;
+  margin-bottom: 1rem;
+  resize: vertical;
+  min-height: 150px;
+  color: var(--color-text);
+}
+
+.input-container textarea:focus {
+  border-color: var(--color-primary);
+}
+
+.btn-submit {
+  width: 100%;
+  padding: 0.75rem;
+  background: var(--color-primary);
+  color: white;
+  border-radius: var(--radius-sm);
+  font-weight: 600;
+  transition: var(--transition-normal);
+}
+
+.btn-submit:hover:not(:disabled) {
+  background: var(--color-primary-hover);
+}
+
+.btn-submit:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-text {
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+}
+
+.btn-text:hover {
+  color: var(--color-accent);
+}
+
+.btn-file {
+  background: rgba(255, 255, 255, 0.1);
+  padding: 0.25rem 0.75rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: var(--transition-normal);
+}
+
+.btn-file:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
