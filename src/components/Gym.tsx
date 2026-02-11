@@ -106,8 +106,6 @@ export const Gym: React.FC<GymProps> = ({ onBack }) => {
 
             }
             setNextNumber(prev => prev + 1);
-        } else {
-            // Optional: Visual shake or error feedback
         }
     };
 
