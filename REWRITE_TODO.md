@@ -39,7 +39,7 @@
 - [x] Add strict runtime schema validation for all import/export formats.
 - [x] Add versioned import migrations with checksum validation.
 - [ ] Finalize Supabase RLS policy audit against every synced table.
-- [ ] Add React Error Boundaries around each lazy-loaded view so a crash in one view doesn't blank the entire app.
+- [x] Add React Error Boundaries around each lazy-loaded view so a crash in one view doesn't blank the entire app.
 
 ## Phase 5 - UX/Performance Polish
 - [~] Virtualize heavy list paths and preserve scroll position exactly (incremental windowing + observer paging added for library; exact scroll-restoration path still pending).
