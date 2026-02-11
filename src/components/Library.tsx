@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { getBookCount, getLibraryBooks, rebuildLibraryBookIndex, saveBook, deleteBook } from '../utils/db';
+import { getBookCount, getLibraryBookCovers, getLibraryBooks, rebuildLibraryBookIndex, saveBook, deleteBook } from '../utils/db';
 import type { Book, LibraryBook } from '../utils/db';
 import { parseEpub } from '../utils/fileHelpers';
 import { toast } from 'react-hot-toast';
@@ -11,22 +11,23 @@ interface LibraryProps {
 
 interface BookCardProps {
     book: LibraryBook;
+    coverUrl?: string;
     timeLeft: string;
     onSelect: (bookId: string) => void | Promise<void>;
     onDelete: (e: React.MouseEvent, book: LibraryBook) => void;
 }
 
-const BookCard = React.memo(({ book, timeLeft, onSelect, onDelete }: BookCardProps) => (
+const BookCard = React.memo(({ book, coverUrl, timeLeft, onSelect, onDelete }: BookCardProps) => (
     <div className="book-card" onClick={() => onSelect(book.id)}>
         <div className="book-cover" style={
-            book.cover ? {
-                backgroundImage: `url(${book.cover})`,
+            coverUrl ? {
+                backgroundImage: `url(${coverUrl})`,
                 backgroundSize: 'cover',
                 backgroundPosition: 'center',
                 backgroundRepeat: 'no-repeat'
             } : {}
         }>
-            {!book.cover && <div className="book-title-display">{book.title}</div>}
+            {!coverUrl && <div className="book-title-display">{book.title}</div>}
 
             <div className="book-progress-overlay desktop-only">
                 <div className="progress-info">
@@ -63,6 +64,7 @@ const Library: React.FC<LibraryProps> = ({ onSelectBook }) => {
     const [isQuickPasteOpen, setIsQuickPasteOpen] = useState(false);
     const [quickPasteText, setQuickPasteText] = useState('');
     const [isIndexing, setIsIndexing] = useState(false);
+    const [coverByBookId, setCoverByBookId] = useState<Record<string, string>>({});
 
     useEffect(() => {
         loadBooks();
@@ -85,6 +87,38 @@ const Library: React.FC<LibraryProps> = ({ onSelectBook }) => {
         }
         setBooks(loadedBooks.sort((a, b) => (b.lastRead || 0) - (a.lastRead || 0)));
     };
+
+    useEffect(() => {
+        let cancelled = false;
+        const hydrateCovers = async () => {
+            const ids = books.filter((book) => book.hasCover).map((book) => book.id);
+            if (ids.length === 0) {
+                setCoverByBookId({});
+                return;
+            }
+
+            const firstBatch = ids.slice(0, 24);
+            const first = await getLibraryBookCovers(firstBatch);
+            if (!cancelled) {
+                setCoverByBookId(first);
+            }
+
+            const remainder = ids.slice(24);
+            if (remainder.length > 0) {
+                setTimeout(async () => {
+                    const rest = await getLibraryBookCovers(remainder);
+                    if (!cancelled) {
+                        setCoverByBookId((prev) => ({ ...prev, ...rest }));
+                    }
+                }, 0);
+            }
+        };
+
+        void hydrateCovers();
+        return () => {
+            cancelled = true;
+        };
+    }, [books]);
 
     const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
@@ -227,6 +261,7 @@ const Library: React.FC<LibraryProps> = ({ onSelectBook }) => {
                     <BookCard
                         key={book.id}
                         book={book}
+                        coverUrl={coverByBookId[book.id]}
                         timeLeft={timeLeftByBookId.get(book.id) || ''}
                         onSelect={onSelectBook}
                         onDelete={handleDeleteClick}
