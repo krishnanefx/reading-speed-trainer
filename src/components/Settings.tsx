@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { getUserProgress, updateUserProgress, exportUserData, importUserData } from '../utils/db';
 import { Auth } from './Auth';
 import { toast } from 'react-hot-toast';
+import { devError } from '../utils/logger';
 
 interface SettingsProps {
     onBack: () => void;
@@ -74,7 +75,7 @@ export const Settings: React.FC<SettingsProps> = ({ onBack, updateTheme }) => {
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
         } catch (error) {
-            console.error('Export failed:', error);
+            devError('Export failed:', error);
             toast.error('Failed to export data.');
         }
     };
@@ -93,7 +94,7 @@ export const Settings: React.FC<SettingsProps> = ({ onBack, updateTheme }) => {
                 toast.error('Failed to restore data. Invalid backup format.');
             }
         } catch (error) {
-            console.error('Import failed:', error);
+            devError('Import failed:', error);
             toast.error('Failed to read backup file.');
         }
     };

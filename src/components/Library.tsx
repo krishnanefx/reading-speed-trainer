@@ -3,6 +3,7 @@ import { getBooks, saveBook, deleteBook } from '../utils/db';
 import type { Book } from '../utils/db';
 import { parseEpub } from '../utils/fileHelpers';
 import { toast } from 'react-hot-toast';
+import { devError } from '../utils/logger';
 
 interface LibraryProps {
     onSelectBook: (book: Book) => void;
@@ -58,7 +59,7 @@ const Library: React.FC<LibraryProps> = ({ onSelectBook }) => {
             await saveBook(newBook);
             loadBooks();
         } catch (error) {
-            console.error('Error reading file:', error);
+            devError('Error reading file:', error);
             toast.error('Failed to read file.');
         } finally {
             setIsLoading(false);

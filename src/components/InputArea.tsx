@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { parseEpub, parseTxt } from '../utils/fileHelpers';
 import { toast } from 'react-hot-toast';
+import { devError } from '../utils/logger';
 
 interface InputAreaProps {
   onTextSubmit: (text: string) => void;
@@ -44,7 +45,7 @@ const InputArea: React.FC<InputAreaProps> = ({ onTextSubmit, initialText = '' })
         toast.success('Text loaded.');
       }
     } catch (err: unknown) {
-      console.error(err);
+      devError(err);
       const message = err instanceof Error ? err.message : 'Unknown parser error';
       toast.error(`Error parsing file: ${message}`);
     } finally {

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { isCloudSyncEnabled, supabase } from '../lib/supabase';
 import type { User } from '@supabase/supabase-js';
+import { devError } from '../utils/logger';
 
 export const AuthCallback = () => {
     // Handle auth state changes or redirects if needed
@@ -66,7 +67,7 @@ export const Auth: React.FC = () => {
             if (attempts >= 5) {
                 setLockUntil(Date.now() + 30_000);
             }
-            console.error(error);
+            devError(error);
             setMessage('Sign in failed. Check your credentials or verify your email.');
         } finally {
             setLoading(false);
