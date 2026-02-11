@@ -11,16 +11,16 @@ const Stats = lazy(() => import('./components/Stats').then(m => ({ default: m.St
 const Gym = lazy(() => import('./components/Gym').then(m => ({ default: m.Gym })));
 const Achievements = lazy(() => import('./components/Achievements').then(m => ({ default: m.Achievements })));
 
-import { getUserProgress, updateUserProgress, getSessions, getBooks, getBook, syncFromCloud } from './utils/db';
+import { getBook, syncFromCloud } from './utils/db';
 import type { Book } from './utils/db';
 import type { SyncStatus } from './utils/db';
-import { checkNewAchievements } from './utils/achievements';
 import { isCloudSyncEnabled, supabase } from './lib/supabase';
 import { useNetwork } from './hooks/useNetwork';
 import { processSyncQueue, subscribeSyncStatus } from './utils/db';
 import { perfLog } from './utils/perf';
 import { ViewErrorBoundary } from './components/ViewErrorBoundary';
 import { loadAppSettings } from './utils/settings';
+import { recordSessionAndUpdateProgress } from './utils/gamification';
 
 type AppView = 'library' | 'reader' | 'settings' | 'stats' | 'gym' | 'achievements';
 type AppPhase = 'boot' | 'hydrating' | 'ready' | 'offline' | 'error';
@@ -144,75 +144,7 @@ function App() {
 
   // Gamification Logic
   const handleSessionComplete = useCallback(async (wordsRead: number, sessionWpm: number, durationSeconds: number) => {
-    const progress = await getUserProgress();
-    const sessions = await getSessions();
-    const allBooks = await getBooks();
-    const today = new Date().toISOString().split('T')[0];
-
-    const todaySessions = sessions.filter(s =>
-      new Date(s.timestamp).toISOString().split('T')[0] === today
-    );
-    const wordsToday = todaySessions.reduce((acc, s) => acc + s.wordsRead, 0) + wordsRead;
-
-    let newStreak = progress.currentStreak;
-    let newLongestStreak = progress.longestStreak;
-
-    if (progress.lastReadDate !== today) {
-      const yesterday = new Date();
-      yesterday.setDate(yesterday.getDate() - 1);
-      const yesterdayStr = yesterday.toISOString().split('T')[0];
-
-      if (progress.lastReadDate === yesterdayStr) {
-        newStreak = progress.currentStreak + 1;
-      } else if (progress.lastReadDate === '') {
-        newStreak = 1;
-      } else {
-        newStreak = 1;
-      }
-      newLongestStreak = Math.max(newLongestStreak, newStreak);
-    }
-
-    let newGoalMetCount = progress.dailyGoalMetCount;
-    const prevWordsToday = wordsToday - wordsRead;
-    if (prevWordsToday < progress.dailyGoal && wordsToday >= progress.dailyGoal) {
-      newGoalMetCount++;
-    }
-
-    const newPeakWpm = Math.max(progress.peakWpm, sessionWpm);
-    const newTotalWords = progress.totalWordsRead + wordsRead;
-    const totalTimeReadSeconds = sessions.reduce((acc, s) => acc + s.durationSeconds, 0) + durationSeconds;
-    const booksFinishedCount = allBooks.filter(b => b.progress >= 1).length;
-
-    const stats = {
-      totalWordsRead: newTotalWords,
-      peakWpm: newPeakWpm,
-      currentStreak: newStreak,
-      longestStreak: newLongestStreak,
-      sessionCount: sessions.length + 1,
-      dailyGoalMetCount: newGoalMetCount,
-      totalTimeReadSeconds,
-      booksFinishedCount,
-      gymBestTime: progress.gymBestTime,
-      lastSessionDuration: durationSeconds,
-    };
-
-    const newAchievements = checkNewAchievements(stats, progress.unlockedAchievements);
-
-    await updateUserProgress({
-      lastReadDate: today,
-      currentStreak: newStreak,
-      longestStreak: newLongestStreak,
-      peakWpm: newPeakWpm,
-      totalWordsRead: newTotalWords,
-      dailyGoalMetCount: newGoalMetCount,
-      unlockedAchievements: [...progress.unlockedAchievements, ...newAchievements],
-    });
-
-    if (newAchievements.length > 0) {
-      newAchievements.forEach(() => {
-        toast.success(`🏆 Achievement Unlocked!`, { duration: 4000 });
-      });
-    }
+    await recordSessionAndUpdateProgress(wordsRead, sessionWpm, durationSeconds);
   }, []);
 
   const handleSelectBook = useCallback(async (bookId: string) => {
