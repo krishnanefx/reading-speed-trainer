@@ -2,6 +2,7 @@ import { openDB } from 'idb';
 import { isCloudSyncEnabled, supabase } from '../lib/supabase';
 import { devError } from './logger';
 import { createCloudSyncHelpers } from './db/cloudSync';
+import { createCloudPullHelpers } from './db/cloudPull';
 import { createImportExportHelpers } from './db/importExport';
 import {
     computeQueueStatus,
@@ -234,170 +235,6 @@ const {
     addToSyncQueue,
     logError: devError,
 });
-
-// Main Sync Function (Pull from Cloud)
-export const syncFromCloud = async () => {
-    if (!isCloudAvailable()) return false;
-    const userId = await getSessionUserId();
-    if (!userId) return false;
-    updateSyncStatus({ phase: 'syncing', lastError: null, nextRetryAt: null });
-
-    try {
-        // 1. Get Progress
-        const { data: cloudProgress, error: progressError } = await supabase!
-            .from('user_progress')
-            .select('*')
-            .eq('user_id', userId)
-            .single();
-
-        if (progressError) {
-            throw progressError;
-        } else if (cloudProgress) {
-            const localProgress = await getUserProgress();
-            // Map back to local format
-            const mappedCloudProgress: UserProgress = {
-                id: 'default',
-                currentStreak: cloudProgress.current_streak,
-                longestStreak: cloudProgress.longest_streak,
-                totalWordsRead: cloudProgress.total_words_read,
-                peakWpm: cloudProgress.peak_wpm,
-                dailyGoal: cloudProgress.daily_goal,
-                gymBestTime: cloudProgress.gym_best_time,
-                unlockedAchievements: cloudProgress.unlocked_achievements || [],
-                lastReadDate: cloudProgress.last_read_date,
-                dailyGoalMetCount: 0,
-                defaultWpm: cloudProgress.default_wpm,
-                defaultChunkSize: cloudProgress.default_chunk_size,
-                defaultFont: cloudProgress.default_font,
-                theme: cloudProgress.theme,
-                autoAccelerate: cloudProgress.auto_accelerate,
-                bionicMode: cloudProgress.bionic_mode
-            };
-            const merged = mergeProgress(localProgress, mappedCloudProgress);
-            await updateUserProgress(merged, false);
-            await syncProgressToCloud(merged, false);
-        }
-
-        // 2. Get Books
-        const { data: cloudBooks, error: booksError } = await supabase!
-            .from('books')
-            .select('*')
-            .eq('user_id', userId);
-
-        if (booksError) {
-            throw booksError;
-        } else if (cloudBooks) {
-            const db = await initDB();
-            const localBooks = await getBooks();
-            const localById = new Map(localBooks.map((book) => [book.id, book]));
-            const tx = db.transaction([BOOKS_STORE, BOOK_META_STORE, BOOK_COVER_STORE], 'readwrite');
-
-            for (const cb of cloudBooks) {
-                const localBook: Book = {
-                    id: cb.id,
-                    title: cb.title,
-                    content: cb.content || '',
-                    progress: cb.progress,
-                    totalWords: cb.total_words,
-                    currentIndex: cb.current_index,
-                    lastRead: cb.last_read,
-                    wpm: cb.wpm,
-                    cover: cb.cover
-                };
-                const existing = localById.get(localBook.id);
-                if (existing) {
-                    const resolved = resolveBookConflict(existing, localBook);
-                    await tx.objectStore(BOOKS_STORE).put(sanitizeBook(resolved.book));
-                    await tx.objectStore(BOOK_META_STORE).put(toLibraryBook(resolved.book));
-                    if (resolved.book.cover) {
-                        await tx.objectStore(BOOK_COVER_STORE).put({ id: resolved.book.id, cover: resolved.book.cover });
-                    } else {
-                        await tx.objectStore(BOOK_COVER_STORE).delete(resolved.book.id);
-                    }
-                    if (resolved.winner === 'local') {
-                        await syncBookToCloud(existing, false);
-                    }
-                } else {
-                    const sanitized = sanitizeBook(localBook);
-                    await tx.objectStore(BOOKS_STORE).put(sanitized);
-                    await tx.objectStore(BOOK_META_STORE).put(toLibraryBook(sanitized));
-                    if (sanitized.cover) {
-                        await tx.objectStore(BOOK_COVER_STORE).put({ id: sanitized.id, cover: sanitized.cover });
-                    } else {
-                        await tx.objectStore(BOOK_COVER_STORE).delete(sanitized.id);
-                    }
-                }
-            }
-
-            const cloudIds = new Set(cloudBooks.map((book) => String(book.id)));
-            for (const localBook of localBooks) {
-                if (!cloudIds.has(localBook.id)) {
-                    await syncBookToCloud(localBook, false);
-                }
-            }
-            await tx.done;
-        }
-
-        // 3. Get Sessions (Fix for empty sessions table)
-        const { data: cloudSessions, error: sessionsError } = await supabase!
-            .from('reading_sessions')
-            .select('*')
-            .eq('user_id', userId);
-
-        if (sessionsError) {
-            throw sessionsError;
-        } else if (cloudSessions) {
-            const db = await initDB();
-            const localSessions = await getSessions();
-            const localById = new Map(localSessions.map((session) => [session.id, sanitizeSession(session)]));
-            const cloudById = new Map<string, Session>();
-            const tx = db.transaction(SESSIONS_STORE, 'readwrite');
-
-            for (const cs of cloudSessions) {
-                const cloudSession = sanitizeSession({
-                    id: cs.id,
-                    bookId: cs.book_id,
-                    durationSeconds: cs.duration_seconds,
-                    wordsRead: cs.words_read,
-                    averageWpm: cs.average_wpm,
-                    timestamp: cs.timestamp
-                });
-                cloudById.set(cloudSession.id, cloudSession);
-                const localSession = localById.get(cloudSession.id);
-                if (!localSession) {
-                    await tx.store.put(cloudSession);
-                    continue;
-                }
-
-                const resolved = resolveSessionConflict(localSession, cloudSession);
-                await tx.store.put(resolved.session);
-                if (resolved.winner === 'local') {
-                    await syncSessionToCloud(localSession, false);
-                }
-            }
-
-            for (const localSession of localById.values()) {
-                if (!cloudById.has(localSession.id)) {
-                    await tx.store.put(localSession);
-                    await syncSessionToCloud(localSession, false);
-                }
-            }
-            await tx.done;
-        }
-
-        updateSyncStatus({
-            phase: 'idle',
-            retryAttempts: 0,
-            nextRetryAt: null,
-            lastError: null,
-            lastSyncedAt: Date.now(),
-        });
-        return true;
-    } catch (error) {
-        scheduleSyncRetry(error);
-        return false;
-    }
-};
 
 export const processSyncQueue = async () => {
     if (!isCloudAvailable() || !navigator.onLine) {
@@ -660,6 +497,34 @@ export const updateUserProgress = async (updates: Partial<UserProgress>, sync = 
         await syncProgressToCloud(updated);
     }
 };
+
+const cloudPullHelpers = createCloudPullHelpers({
+    supabase,
+    isCloudAvailable,
+    getSessionUserId,
+    updateSyncStatus,
+    scheduleSyncRetry,
+    getUserProgress,
+    updateUserProgress,
+    syncProgressToCloud,
+    initDB,
+    getBooks,
+    sanitizeBook,
+    toLibraryBook,
+    resolveBookConflict,
+    syncBookToCloud,
+    getSessions,
+    sanitizeSession,
+    resolveSessionConflict,
+    syncSessionToCloud,
+    mergeProgress,
+    booksStore: BOOKS_STORE,
+    bookMetaStore: BOOK_META_STORE,
+    bookCoverStore: BOOK_COVER_STORE,
+    sessionsStore: SESSIONS_STORE,
+});
+
+export const syncFromCloud = cloudPullHelpers.syncFromCloud;
 
 const importExportHelpers = createImportExportHelpers({
     maxImportSizeBytes: MAX_IMPORT_SIZE_BYTES,
