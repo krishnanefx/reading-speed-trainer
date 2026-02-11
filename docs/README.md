@@ -10,6 +10,7 @@
 - `ops/DB_SETUP_GUIDE.md`: Supabase and DB setup.
 - `ops/DB_FULL_SYNC_SETUP.md`: end-to-end sync setup.
 - `ops/DB_REPAIR_GUIDE.md`: local/cloud repair steps.
+- `ops/SUPABASE_RLS_AUDIT.md`: RLS findings and hardening guidance.
 
 ## Legacy / Review Needed
 - `legacy/GITHUB_INSTRUCTIONS.md`: old GitHub flow notes; keep until fully replaced by CI/PR docs.
