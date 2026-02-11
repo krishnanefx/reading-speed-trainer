@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { getUserProgress, updateUserProgress, getSessions } from '../utils/db';
 import { checkNewAchievements } from '../utils/achievements';
 import { toast } from 'react-hot-toast';
+import './Gym.css';
 
 interface GymProps {
     onBack: () => void;
@@ -119,18 +120,18 @@ export const Gym: React.FC<GymProps> = ({ onBack }) => {
         <div className="gym-container">
             <div className="gym-header">
                 <button className="btn-back" onClick={onBack}>← Back</button>
-                <div style={{ textAlign: 'center' }}>
+                <div className="gym-title-group">
                     <h2>Eye Gym</h2>
-                    {bestTime && <div style={{ fontSize: '0.9rem', color: 'var(--color-primary)' }}>Best: {bestTime.toFixed(2)}s</div>}
+                    {bestTime && <div className="gym-best-time">Best: {bestTime.toFixed(2)}s</div>}
                 </div>
-                <div style={{ width: '60px' }}></div>
+                <div className="gym-header-spacer"></div>
             </div>
 
             <div className="instructions">
                 Find numbers 1 to 25 in order. Keep your eyes fixed on the center of the grid!
             </div>
 
-            <div className="timer-display" style={{ color: isComplete ? 'var(--color-primary)' : 'inherit' }}>
+            <div className={`timer-display ${isComplete ? 'complete' : ''}`}>
                 {formatTime(timeElapsed)}
             </div>
 
@@ -154,119 +155,6 @@ export const Gym: React.FC<GymProps> = ({ onBack }) => {
                     <button className="btn-restart" onClick={resetGame}>Play Again</button>
                 </div>
             )}
-
-            <style>{`
-                .gym-container {
-                     max-width: 600px;
-                     margin: 0 auto;
-                     padding: 1rem;
-                     width: 100%;
-                     display: flex;
-                     flex-direction: column;
-                     align-items: center;
-                }
-                
-                .gym-header {
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: center;
-                    width: 100%;
-                    margin-bottom: 2rem;
-                }
-
-                .btn-back {
-                    background: transparent;
-                    border: none;
-                    color: var(--color-text-secondary);
-                    cursor: pointer;
-                    font-size: 1rem;
-                }
-
-                .instructions {
-                    color: var(--color-text-secondary);
-                    margin-bottom: 1rem;
-                    text-align: center;
-                    font-size: 0.9rem;
-                }
-
-                .timer-display {
-                    font-size: 2.5rem;
-                    font-weight: 800;
-                    font-variant-numeric: tabular-nums;
-                    margin-bottom: 2rem;
-                    font-family: monospace;
-                }
-
-                .schulte-grid {
-                    display: grid;
-                    grid-template-columns: repeat(5, 1fr);
-                    gap: 0.5rem;
-                    width: 100%;
-                    aspect-ratio: 1;
-                    max-width: 400px;
-                }
-
-                .grid-cell {
-                    background: var(--color-surface);
-                    border: 1px solid rgba(255,255,255,0.1);
-                    border-radius: var(--radius-md);
-                    font-size: 1.5rem;
-                    font-weight: 700;
-                    color: var(--color-text);
-                    cursor: pointer;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    transition: all 0.1s;
-                }
-
-                .grid-cell:hover {
-                    background: rgba(255,255,255,0.1);
-                }
-
-                .grid-cell:active {
-                    transform: scale(0.95);
-                }
-
-                /* Visual feedback for found numbers - optional, strict Schulte tables usually don't fade, 
-                   but for a game 'gamification' it feels good. */
-                .grid-cell.found {
-                    opacity: 0.3;
-                    pointer-events: none;
-                }
-
-                .completion-modal {
-                    position: fixed;
-                    top: 50%;
-                    left: 50%;
-                    transform: translate(-50%, -50%);
-                    background: var(--color-surface);
-                    border: 1px solid var(--color-primary);
-                    padding: 2rem;
-                    border-radius: var(--radius-lg);
-                    text-align: center;
-                    box-shadow: 0 10px 50px rgba(0,0,0,0.5);
-                    z-index: 100;
-                }
-
-                .completion-modal h3 {
-                    margin-top: 0;
-                    font-size: 2rem;
-                    color: var(--color-primary);
-                }
-
-                .btn-restart {
-                    background: var(--color-primary);
-                    color: white;
-                    border: none;
-                    padding: 0.75rem 2rem;
-                    border-radius: var(--radius-full);
-                    font-weight: 700;
-                    font-size: 1.1rem;
-                    cursor: pointer;
-                    margin-top: 1rem;
-                }
-            `}</style>
         </div>
     );
 };
