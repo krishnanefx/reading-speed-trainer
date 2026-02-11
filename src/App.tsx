@@ -266,7 +266,7 @@ function App() {
   }, [view]);
 
   return (
-    <div className="container" style={{ transition: 'all 0.5s ease' }}>
+    <div className="container app-container">
       {effectivePhase !== 'ready' && effectivePhase !== 'offline' ? (
         <div className="view-loader" role="status" aria-live="polite">
           {effectivePhase === 'error' ? 'Initialization failed.' : 'Loading FlashRead...'}
@@ -308,7 +308,7 @@ function App() {
         )}
       </Suspense>
 
-      <Suspense fallback={<div style={{ textAlign: 'center', marginTop: '20vh' }}>Loading...</div>}>
+      <Suspense fallback={<div className="view-loader compact" role="status" aria-live="polite">Loading...</div>}>
         {view === 'settings' && (
           <Settings
             onBack={() => handleNavigate('library')}
@@ -320,13 +320,7 @@ function App() {
         {view === 'achievements' && <Achievements onBack={() => handleNavigate('library')} />}
       </Suspense>
 
-      <Toaster position="bottom-center" toastOptions={{
-        style: {
-          background: '#1e293b',
-          color: '#f8fafc',
-          border: '1px solid rgba(255,255,255,0.1)'
-        }
-      }} />
+      <Toaster position="bottom-center" toastOptions={{ className: 'app-toast' }} />
 
       <Suspense fallback={null}>
         {/* Footer is global except reader (ReaderView handles its own layout/footer-less state) */}
