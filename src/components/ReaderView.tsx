@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import Reader from './Reader';
 import Controls from './Controls';
+import ShortcutsHelp from './ShortcutsHelp';
 import { useReader } from '../hooks/useReader';
 import type { Book } from '../utils/db';
 import { logSession, updateBookProgress } from '../utils/db';
@@ -37,6 +38,7 @@ const ReaderView: React.FC<ReaderViewProps> = ({
     const [chunkSize, setChunkSize] = useState(initialChunkSize);
     const [font, setFont] = useState(initialFont);
     const [fontSize, setFontSize] = useState(initialFontSize);
+    const [isShortcutsOpen, setIsShortcutsOpen] = useState(false);
 
     // Reader Hook
     const {
@@ -194,15 +196,22 @@ const ReaderView: React.FC<ReaderViewProps> = ({
                     break;
                 case 'Escape':
                     e.preventDefault();
-                    if (focusMode) setIsFocusMode(false);
+                    if (isShortcutsOpen) setIsShortcutsOpen(false);
+                    else if (focusMode) setIsFocusMode(false);
                     else onBack();
+                    break;
+                case 'Slash':
+                    if (e.shiftKey) {
+                        e.preventDefault();
+                        setIsShortcutsOpen(true);
+                    }
                     break;
             }
         };
 
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [togglePlay, seek, onBack]); // Minimized dependencies
+    }, [togglePlay, seek, onBack, isShortcutsOpen]); // Minimized dependencies
 
     // Display Helpers
     const wordsLeft = Math.max(0, words.length - currentIndex);
@@ -248,7 +257,23 @@ const ReaderView: React.FC<ReaderViewProps> = ({
                 <div style={{ flex: 1, textAlign: 'center', fontWeight: 600, fontSize: '0.9rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {book.title}
                 </div>
-                <div style={{ width: '80px' }}></div>
+                <button
+                    onClick={() => setIsShortcutsOpen(true)}
+                    className="btn-back"
+                    style={{
+                        background: 'transparent',
+                        border: '1px solid rgba(255,255,255,0.15)',
+                        color: 'var(--color-text-secondary)',
+                        borderRadius: '999px',
+                        padding: '0.35rem 0.65rem',
+                        cursor: 'pointer',
+                        fontSize: '0.85rem'
+                    }}
+                    title="Keyboard shortcuts (?)"
+                    aria-label="Open keyboard shortcuts"
+                >
+                    ?
+                </button>
             </nav>
 
             {/* Main Reader Area */}
@@ -375,6 +400,7 @@ const ReaderView: React.FC<ReaderViewProps> = ({
               }
             }
       `}</style>
+            <ShortcutsHelp isOpen={isShortcutsOpen} onClose={() => setIsShortcutsOpen(false)} />
         </>
     );
 };
