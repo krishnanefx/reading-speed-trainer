@@ -69,6 +69,6 @@
 - [ ] **Extract `App.tsx` concerns** — `App.tsx` (345 lines) handles routing, auth session, sync orchestration, settings hydration, and gamification logic all in one component. Extract a `useAppState` hook or context for session/sync, move gamification to `utils/gamification.ts`, and consider a lightweight router.
 - [ ] **Unify settings hydration** — `App.tsx` reads settings from DB-first with localStorage fallback during `loadData`, but `refreshSettings` reads localStorage directly, creating a split source of truth. Consolidate into a single `useSettings` hook backed by DB with localStorage as write-through cache.
 - [x] **Stabilize callback identities in `App.tsx`** — `onBack` handlers and `onUpdateStats` are now stable via `useCallback`.
-- [ ] **Fix hash-based routing edge cases** — `handleHashChange` and the `view → hash` sync effect can fight each other (setting hash triggers hashchange which sets view which sets hash). Consider using a proper tiny router or a single source of truth.
+- [x] **Fix hash-based routing edge cases** — added guard refs to prevent hashchange/view-sync feedback loops.
 - [ ] **Consolidate font-size setting** — `defaultFontSize` is a `useState(3)` constant in `App.tsx` (never updated) and not persisted in the DB `UserProgress` type; either add it to the schema or remove the indirection.
 - [ ] **Lazy-load `epubjs` dependency** — `epubjs` is in the `epub` manual chunk but is never imported anywhere in application code; it may be dead weight. Audit and remove if unused.
