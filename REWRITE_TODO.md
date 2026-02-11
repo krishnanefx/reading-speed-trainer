@@ -21,8 +21,8 @@
 - [x] Add perf budget checks for startup and open-book latency in CI (bundle size gate in CI).
 
 ## Phase 2 - Reader + Sync Core
-- [ ] Move reader scheduling into dedicated engine/service outside component render path.
-- [ ] Keep React as subscriber-only view for reader output.
+- [x] Move reader scheduling into dedicated engine/service outside component render path.
+- [x] Keep React as subscriber-only view for reader output.
 - [ ] Make sync queue fully durable with persisted retry metadata.
 - [ ] Implement queue compaction + idempotent replay by entity key.
 - [ ] Define conflict policy per entity type (progress/session/book).
