@@ -9,7 +9,7 @@
 - [x] CI: add lint/build/bundle budget checks on push/PR.
 - [x] App lifecycle: include explicit `offline` phase behavior.
 - [ ] DB migrations: add deterministic migration tests.
-- [ ] Remove next heavy inline style block (`ReaderView`).
+- [x] Remove next heavy inline style block (`ReaderView`).
 - [ ] Add perf diagnostics panel based on `[perf]` phases.
 
 ## Phase 1 - Foundation (In Progress)
