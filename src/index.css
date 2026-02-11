@@ -140,6 +140,10 @@ textarea:focus {
   flex-direction: column;
 }
 
+.app-container {
+  transition: all 0.5s ease;
+}
+
 .view-loader {
   margin: 14vh auto 0;
   width: min(420px, 92%);
@@ -151,6 +155,17 @@ textarea:focus {
   padding: 1rem 1.2rem;
   backdrop-filter: blur(8px);
   animation: loaderPulse 1.4s ease-in-out infinite;
+}
+
+.view-loader.compact {
+  width: auto;
+  padding: 0.65rem 1rem;
+}
+
+.app-toast {
+  background: #1e293b;
+  color: #f8fafc;
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 @media (min-width: 640px) {
