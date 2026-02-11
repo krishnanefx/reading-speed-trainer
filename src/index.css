@@ -108,6 +108,13 @@ button {
   color: inherit;
 }
 
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
 input,
 textarea {
   font-family: inherit;
@@ -221,6 +228,20 @@ textarea:focus {
 .offline-badge {
   font-size: 0.6rem;
   background: var(--color-accent);
+  color: white;
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+  margin-left: 0.5rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  vertical-align: middle;
+  display: inline-block;
+  transform: translateY(-5px);
+}
+
+.local-badge {
+  font-size: 0.6rem;
+  background: #10b981;
   color: white;
   padding: 0.1rem 0.4rem;
   border-radius: 4px;

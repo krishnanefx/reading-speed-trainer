@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
+import { isCloudSyncEnabled, supabase } from '../lib/supabase';
 
 export const AuthCallback = () => {
     // Handle auth state changes or redirects if needed
@@ -15,6 +15,8 @@ export const Auth: React.FC = () => {
     const [message, setMessage] = useState('');
 
     useEffect(() => {
+        if (!isCloudSyncEnabled || !supabase) return;
+
         supabase.auth.getSession().then(({ data: { session } }) => {
             setUser(session?.user ?? null);
         });
@@ -34,6 +36,9 @@ export const Auth: React.FC = () => {
         setMessage('');
 
         try {
+            if (!isCloudSyncEnabled || !supabase) {
+                throw new Error('Cloud sync is disabled. Configure Supabase environment variables.');
+            }
             if (isSignUp) {
                 const { error } = await supabase.auth.signUp({
                     email,
@@ -56,8 +61,20 @@ export const Auth: React.FC = () => {
     };
 
     const handleLogout = async () => {
+        if (!supabase) return;
         await supabase.auth.signOut();
     };
+
+    if (!isCloudSyncEnabled || !supabase) {
+        return (
+            <div className="auth-container">
+                <h3>Cloud Sync Disabled</h3>
+                <p style={{ marginBottom: '0', color: 'var(--color-text-secondary)' }}>
+                    Running in secure local-only mode. Add Supabase keys to enable account sync.
+                </p>
+            </div>
+        );
+    }
 
     if (user) {
         return (
