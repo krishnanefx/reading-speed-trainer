@@ -19,6 +19,7 @@ import { isCloudSyncEnabled, supabase } from './lib/supabase';
 import { useNetwork } from './hooks/useNetwork';
 import { processSyncQueue, subscribeSyncStatus } from './utils/db';
 import { perfLog } from './utils/perf';
+import { ViewErrorBoundary } from './components/ViewErrorBoundary';
 
 type AppView = 'library' | 'reader' | 'settings' | 'stats' | 'gym' | 'achievements';
 type AppPhase = 'boot' | 'hydrating' | 'ready' | 'offline' | 'error';
@@ -273,6 +274,7 @@ function App() {
         </div>
       ) : (
         <>
+      <ViewErrorBoundary resetKey={`primary-${view}`}>
       <Suspense fallback={<div className="view-loader" role="status" aria-live="polite">Loading view...</div>}>
         {/* Header only on main pages */}
         {view === 'library' && (
@@ -307,7 +309,9 @@ function App() {
           />
         )}
       </Suspense>
+      </ViewErrorBoundary>
 
+      <ViewErrorBoundary resetKey={`secondary-${view}`}>
       <Suspense fallback={<div className="view-loader compact" role="status" aria-live="polite">Loading...</div>}>
         {view === 'settings' && (
           <Settings
@@ -319,6 +323,7 @@ function App() {
         {view === 'gym' && <Gym onBack={() => handleNavigate('library')} />}
         {view === 'achievements' && <Achievements onBack={() => handleNavigate('library')} />}
       </Suspense>
+      </ViewErrorBoundary>
 
       <Toaster position="bottom-center" toastOptions={{ className: 'app-toast' }} />
 
