@@ -5,10 +5,11 @@ import { devError } from './logger';
 const DB_NAME = 'ReadingTrainerDB';
 const BOOKS_STORE = 'books';
 const BOOK_META_STORE = 'book_meta';
+const BOOK_COVER_STORE = 'book_covers';
 const SESSIONS_STORE = 'sessions';
 const STORE_NAME = 'progress';
 const SYNC_QUEUE_STORE = 'sync_queue';
-const DB_VERSION = 4; // Incremented for lightweight library metadata index
+const DB_VERSION = 5; // Incremented for dedicated cover store and lazy library cover loading
 const MAX_IMPORT_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
 const MAX_IMPORT_ITEMS = 50_000;
 const MAX_SYNC_RETRY_ATTEMPTS = 6;
@@ -33,7 +34,7 @@ export interface LibraryBook {
     title: string;
     progress: number;
     totalWords: number;
-    cover?: string;
+    hasCover?: boolean;
     currentIndex?: number;
     lastRead?: number;
     wpm?: number;
@@ -234,7 +235,7 @@ const toLibraryBook = (book: Partial<Book>): LibraryBook => ({
     title: String(book.title ?? 'Untitled'),
     progress: toSafeNumber(book.progress, 0, 0, 1),
     totalWords: toSafeNumber(book.totalWords, Math.max(0, Math.round(String(book.content || book.text || '').length / 5)), 0),
-    cover: typeof book.cover === 'string' ? book.cover : undefined,
+    hasCover: typeof book.cover === 'string' && book.cover.length > 0,
     currentIndex: toSafeNumber(book.currentIndex, 0, 0),
     lastRead: toSafeNumber(book.lastRead, 0, 0),
     wpm: toSafeNumber(book.wpm, 300, 60, 2000),
@@ -299,6 +300,9 @@ export const initDB = async () => {
             }
             if (!db.objectStoreNames.contains(BOOK_META_STORE)) {
                 db.createObjectStore(BOOK_META_STORE, { keyPath: 'id' });
+            }
+            if (!db.objectStoreNames.contains(BOOK_COVER_STORE)) {
+                db.createObjectStore(BOOK_COVER_STORE, { keyPath: 'id' });
             }
             if (!db.objectStoreNames.contains(SYNC_QUEUE_STORE)) {
                 db.createObjectStore(SYNC_QUEUE_STORE, { keyPath: 'id', autoIncrement: true });
@@ -504,7 +508,7 @@ export const syncFromCloud = async () => {
             const db = await initDB();
             const localBooks = await getBooks();
             const localById = new Map(localBooks.map((book) => [book.id, book]));
-            const tx = db.transaction([BOOKS_STORE, BOOK_META_STORE], 'readwrite');
+            const tx = db.transaction([BOOKS_STORE, BOOK_META_STORE, BOOK_COVER_STORE], 'readwrite');
 
             for (const cb of cloudBooks) {
                 const localBook: Book = {
@@ -528,11 +532,21 @@ export const syncFromCloud = async () => {
                 if (keepLocal) {
                     await tx.objectStore(BOOKS_STORE).put(existing!);
                     await tx.objectStore(BOOK_META_STORE).put(toLibraryBook(existing!));
+                    if (existing?.cover) {
+                        await tx.objectStore(BOOK_COVER_STORE).put({ id: existing.id, cover: existing.cover });
+                    } else {
+                        await tx.objectStore(BOOK_COVER_STORE).delete(existing!.id);
+                    }
                     await syncBookToCloud(existing!, false);
                 } else {
                     const sanitized = sanitizeBook(localBook);
                     await tx.objectStore(BOOKS_STORE).put(sanitized);
                     await tx.objectStore(BOOK_META_STORE).put(toLibraryBook(sanitized));
+                    if (sanitized.cover) {
+                        await tx.objectStore(BOOK_COVER_STORE).put({ id: sanitized.id, cover: sanitized.cover });
+                    } else {
+                        await tx.objectStore(BOOK_COVER_STORE).delete(sanitized.id);
+                    }
                 }
             }
 
@@ -659,9 +673,14 @@ export const processSyncQueue = async () => {
 export const saveBook = async (book: Book) => {
     const db = await initDB();
     const val = sanitizeBook(book);
-    const tx = db.transaction([BOOKS_STORE, BOOK_META_STORE], 'readwrite');
+    const tx = db.transaction([BOOKS_STORE, BOOK_META_STORE, BOOK_COVER_STORE], 'readwrite');
     await tx.objectStore(BOOKS_STORE).put(val);
     await tx.objectStore(BOOK_META_STORE).put(toLibraryBook(val));
+    if (val.cover) {
+        await tx.objectStore(BOOK_COVER_STORE).put({ id: val.id, cover: val.cover });
+    } else {
+        await tx.objectStore(BOOK_COVER_STORE).delete(val.id);
+    }
     await tx.done;
     await syncBookToCloud(val);
 };
@@ -679,7 +698,28 @@ export const getBooks = async (): Promise<Book[]> => {
 
 export const getLibraryBooks = async (): Promise<LibraryBook[]> => {
     const db = await initDB();
-    return db.getAll(BOOK_META_STORE) as Promise<LibraryBook[]>;
+    const meta = await db.getAll(BOOK_META_STORE);
+    return meta.map((m) => {
+        const item = m as LibraryBook & { cover?: string };
+        return {
+            ...item,
+            hasCover: item.hasCover ?? Boolean(item.cover),
+        };
+    });
+};
+
+export const getLibraryBookCovers = async (bookIds: string[]): Promise<Record<string, string>> => {
+    const ids = Array.from(new Set(bookIds)).filter(Boolean);
+    if (ids.length === 0) return {};
+    const db = await initDB();
+    const entries = await Promise.all(ids.map((id) => db.get(BOOK_COVER_STORE, id)));
+    const result: Record<string, string> = {};
+    for (const entry of entries) {
+        if (entry?.id && typeof entry.cover === 'string') {
+            result[String(entry.id)] = entry.cover;
+        }
+    }
+    return result;
 };
 
 export const getBookCount = async (): Promise<number> => {
@@ -689,11 +729,16 @@ export const getBookCount = async (): Promise<number> => {
 
 export const rebuildLibraryBookIndex = async () => {
     const db = await initDB();
-    const tx = db.transaction([BOOKS_STORE, BOOK_META_STORE], 'readwrite');
+    const tx = db.transaction([BOOKS_STORE, BOOK_META_STORE, BOOK_COVER_STORE], 'readwrite');
     const books = await tx.objectStore(BOOKS_STORE).getAll();
     await tx.objectStore(BOOK_META_STORE).clear();
+    await tx.objectStore(BOOK_COVER_STORE).clear();
     for (const book of books) {
-        await tx.objectStore(BOOK_META_STORE).put(toLibraryBook(book as Partial<Book>));
+        const typedBook = book as Partial<Book>;
+        await tx.objectStore(BOOK_META_STORE).put(toLibraryBook(typedBook));
+        if (typedBook.cover) {
+            await tx.objectStore(BOOK_COVER_STORE).put({ id: String(typedBook.id), cover: typedBook.cover });
+        }
     }
     await tx.done;
 };
@@ -702,8 +747,10 @@ export const getBook = async (id: string): Promise<Book | undefined> => {
     const db = await initDB();
     const book = await db.get(BOOKS_STORE, id);
     if (book) {
+        const coverEntry = await db.get(BOOK_COVER_STORE, id);
         return {
             ...book,
+            cover: coverEntry?.cover || book.cover,
             content: book.content || book.text || ''
         }
     }
@@ -724,9 +771,14 @@ export const updateBookProgress = async (
         if (currentIndex !== undefined) book.currentIndex = currentIndex;
         book.lastRead = Date.now();
         if (wpm) book.wpm = toSafeNumber(wpm, book.wpm || 300, 60, 2000);
-        const tx = db.transaction([BOOKS_STORE, BOOK_META_STORE], 'readwrite');
+        const tx = db.transaction([BOOKS_STORE, BOOK_META_STORE, BOOK_COVER_STORE], 'readwrite');
         await tx.objectStore(BOOKS_STORE).put(book);
         await tx.objectStore(BOOK_META_STORE).put(toLibraryBook(book as Partial<Book>));
+        if (book.cover) {
+            await tx.objectStore(BOOK_COVER_STORE).put({ id: String(book.id), cover: book.cover });
+        } else {
+            await tx.objectStore(BOOK_COVER_STORE).delete(String(book.id));
+        }
         await tx.done;
         if (sync) {
             await syncBookToCloud(sanitizeBook(book));
@@ -736,9 +788,10 @@ export const updateBookProgress = async (
 
 export const deleteBook = async (id: string) => {
     const db = await initDB();
-    const tx = db.transaction([BOOKS_STORE, BOOK_META_STORE], 'readwrite');
+    const tx = db.transaction([BOOKS_STORE, BOOK_META_STORE, BOOK_COVER_STORE], 'readwrite');
     await tx.objectStore(BOOKS_STORE).delete(id);
     await tx.objectStore(BOOK_META_STORE).delete(id);
+    await tx.objectStore(BOOK_COVER_STORE).delete(id);
     await tx.done;
     await deleteBookFromCloud(id);
 };
@@ -819,11 +872,16 @@ export const importUserData = async (jsonString: string): Promise<boolean> => {
         await txSession.done;
 
         // Import Books
-        const txBooks = db.transaction([BOOKS_STORE, BOOK_META_STORE], 'readwrite');
+        const txBooks = db.transaction([BOOKS_STORE, BOOK_META_STORE, BOOK_COVER_STORE], 'readwrite');
         for (const b of books) {
             const sanitized = sanitizeBook(b);
             await txBooks.objectStore(BOOKS_STORE).put(sanitized);
             await txBooks.objectStore(BOOK_META_STORE).put(toLibraryBook(sanitized));
+            if (sanitized.cover) {
+                await txBooks.objectStore(BOOK_COVER_STORE).put({ id: sanitized.id, cover: sanitized.cover });
+            } else {
+                await txBooks.objectStore(BOOK_COVER_STORE).delete(sanitized.id);
+            }
         }
         await txBooks.done;
 
