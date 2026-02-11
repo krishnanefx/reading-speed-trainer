@@ -1,6 +1,6 @@
 import { toast } from 'react-hot-toast';
 import { checkNewAchievements } from './achievements';
-import { getBooks, getSessions, getUserProgress, updateUserProgress } from './db';
+import { getBooks, getSessions, getUserProgress, updateUserProgress } from './db/index';
 
 export const recordSessionAndUpdateProgress = async (
   wordsRead: number,
