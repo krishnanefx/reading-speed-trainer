@@ -1,0 +1,79 @@
+.auth-container {
+  background: rgba(255, 255, 255, 0.05);
+  padding: 1.5rem;
+  border-radius: var(--radius-lg);
+  margin-bottom: 2rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.logged-in {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.auth-subtext {
+  margin-bottom: 1rem;
+  color: var(--color-text-secondary);
+}
+
+.auth-subtext.no-margin {
+  margin-bottom: 0;
+}
+
+.cloud-status {
+  color: #4ade80;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.form-group {
+  margin-bottom: 1rem;
+}
+
+.auth-container input {
+  width: 100%;
+  padding: 0.75rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-text-secondary);
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+
+.auth-container .btn-primary {
+  width: 100%;
+  padding: 0.75rem;
+  border-radius: var(--radius-md);
+  background: var(--color-primary);
+  color: white;
+  border: none;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.auth-container .btn-secondary {
+  padding: 0.5rem 1rem;
+  border-radius: var(--radius-md);
+  background: transparent;
+  border: 1px solid var(--color-text-secondary);
+  color: var(--color-text);
+  cursor: pointer;
+}
+
+.auth-container .btn-link {
+  background: none;
+  border: none;
+  color: var(--color-primary);
+  margin-top: 1rem;
+  cursor: pointer;
+  font-size: 0.9rem;
+  text-decoration: underline;
+}
+
+.auth-message {
+  margin-top: 1rem;
+  color: #fbaceb;
+  font-size: 0.9rem;
+}
