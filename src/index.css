@@ -268,6 +268,27 @@ textarea:focus {
   transform: translateY(-5px);
 }
 
+.sync-badge {
+  font-size: 0.6rem;
+  color: white;
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+  margin-left: 0.5rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  vertical-align: middle;
+  display: inline-block;
+  transform: translateY(-5px);
+}
+
+.sync-badge.syncing {
+  background: #2563eb;
+}
+
+.sync-badge.failed {
+  background: #b45309;
+}
+
 @keyframes gradientShift {
 
   0%,

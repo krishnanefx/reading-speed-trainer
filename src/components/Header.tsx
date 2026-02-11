@@ -1,13 +1,19 @@
 import React from 'react';
+import type { SyncStatus } from '../utils/db';
 
 interface HeaderProps {
   onNavigate: (view: string) => void;
   currentView: string;
   isOnline: boolean;
   isCloudSyncEnabled: boolean;
+  syncStatus: SyncStatus;
 }
 
-const Header: React.FC<HeaderProps> = React.memo(({ onNavigate, currentView, isOnline, isCloudSyncEnabled }) => {
+const Header: React.FC<HeaderProps> = React.memo(({ onNavigate, currentView, isOnline, isCloudSyncEnabled, syncStatus }) => {
+  const showSyncBadge = isCloudSyncEnabled && isOnline && (syncStatus.phase !== 'idle' || syncStatus.queueSize > 0);
+  const syncLabel = syncStatus.phase === 'syncing'
+    ? `SYNCING ${syncStatus.queueSize}`
+    : `RETRY #${Math.max(1, syncStatus.retryAttempts)}`;
   return (
     <header className="header">
       <div className="logo" onClick={() => onNavigate('library')}>
@@ -21,6 +27,14 @@ const Header: React.FC<HeaderProps> = React.memo(({ onNavigate, currentView, isO
         {!isOnline && (
           <span className="offline-badge" title="Offline Mode">
             OFFLINE
+          </span>
+        )}
+        {showSyncBadge && (
+          <span
+            className={`sync-badge ${syncStatus.phase}`}
+            title={syncStatus.lastError ?? 'Sync in progress'}
+          >
+            {syncLabel}
           </span>
         )}
       </div>

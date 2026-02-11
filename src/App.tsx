@@ -12,10 +12,11 @@ const Achievements = lazy(() => import('./components/Achievements').then(m => ({
 
 import { getUserProgress, updateUserProgress, getSessions, getBooks, syncFromCloud } from './utils/db';
 import type { Book } from './utils/db';
+import type { SyncStatus } from './utils/db';
 import { checkNewAchievements } from './utils/achievements';
 import { isCloudSyncEnabled, supabase } from './lib/supabase';
 import { useNetwork } from './hooks/useNetwork';
-import { processSyncQueue } from './utils/db';
+import { processSyncQueue, subscribeSyncStatus } from './utils/db';
 
 type AppView = 'library' | 'reader' | 'settings' | 'stats' | 'gym' | 'achievements';
 const APP_VIEWS: readonly AppView[] = ['library', 'reader', 'settings', 'stats', 'gym', 'achievements'];
@@ -34,6 +35,18 @@ function App() {
 
   // Network State
   const isOnline = useNetwork();
+  const [syncStatus, setSyncStatus] = useState<SyncStatus>({
+    phase: 'idle',
+    queueSize: 0,
+    retryAttempts: 0,
+    nextRetryAt: null,
+    lastSyncedAt: null,
+    lastError: null,
+  });
+
+  useEffect(() => {
+    return subscribeSyncStatus(setSyncStatus);
+  }, []);
 
   // Sync Queue Processing
   useEffect(() => {
@@ -257,6 +270,7 @@ function App() {
             currentView={view}
             isOnline={isOnline}
             isCloudSyncEnabled={isCloudSyncEnabled}
+            syncStatus={syncStatus}
           />
         )}
 
