@@ -3,11 +3,6 @@ import { isCloudSyncEnabled, supabase } from '../lib/supabase';
 import type { User } from '@supabase/supabase-js';
 import { devError } from '../utils/logger';
 
-export const AuthCallback = () => {
-    // Handle auth state changes or redirects if needed
-    return null;
-}
-
 export const Auth: React.FC = () => {
     const [loading, setLoading] = useState(false);
     const [email, setEmail] = useState('');
