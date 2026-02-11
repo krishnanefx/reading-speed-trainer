@@ -23,8 +23,8 @@
 ## Phase 2 - Reader + Sync Core
 - [x] Move reader scheduling into dedicated engine/service outside component render path.
 - [x] Keep React as subscriber-only view for reader output.
-- [ ] Make sync queue fully durable with persisted retry metadata.
-- [ ] Implement queue compaction + idempotent replay by entity key.
+- [x] Make sync queue fully durable with persisted retry metadata.
+- [x] Implement queue compaction + idempotent replay by entity key.
 - [ ] Define conflict policy per entity type (progress/session/book).
 
 ## Phase 3 - Worker-First Heavy Processing
