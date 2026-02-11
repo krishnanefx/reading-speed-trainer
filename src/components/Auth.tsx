@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { isCloudSyncEnabled, supabase } from '../lib/supabase';
 import type { User } from '@supabase/supabase-js';
 import { devError } from '../utils/logger';
+import './Auth.css';
 
 export const Auth: React.FC = () => {
     const [loading, setLoading] = useState(false);
@@ -78,7 +79,7 @@ export const Auth: React.FC = () => {
         return (
             <div className="auth-container">
                 <h3>Cloud Sync Disabled</h3>
-                <p style={{ marginBottom: '0', color: 'var(--color-text-secondary)' }}>
+                <p className="auth-subtext no-margin">
                     Running in secure local-only mode. Add Supabase keys to enable account sync.
                 </p>
             </div>
@@ -100,7 +101,7 @@ export const Auth: React.FC = () => {
     return (
         <div className="auth-container">
             <h3>{isSignUp ? 'Create Account' : 'Sign In'}</h3>
-            <p style={{ marginBottom: '1rem', color: 'var(--color-text-secondary)' }}>
+            <p className="auth-subtext">
                 Sync your progress across devices.
             </p>
 
@@ -134,71 +135,6 @@ export const Auth: React.FC = () => {
             <button className="btn-link" onClick={() => { setIsSignUp(!isSignUp); setMessage(''); }}>
                 {isSignUp ? 'Already have an account? Sign In' : 'No account? Sign Up'}
             </button>
-
-            <style>{`
-        .auth-container {
-            background: rgba(255,255,255,0.05);
-            padding: 1.5rem;
-            border-radius: var(--radius-lg);
-            margin-bottom: 2rem;
-            border: 1px solid rgba(255,255,255,0.1);
-        }
-        .logged-in {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            flex-wrap: wrap;
-            gap: 1rem;
-        }
-        .cloud-status {
-            color: #4ade80;
-            font-size: 0.9rem;
-            font-weight: 600;
-        }
-        .form-group {
-            margin-bottom: 1rem;
-        }
-        input {
-            width: 100%;
-            padding: 0.75rem;
-            border-radius: var(--radius-md);
-            border: 1px solid var(--color-text-secondary);
-            background: var(--color-bg);
-            color: var(--color-text);
-        }
-        .btn-primary {
-            width: 100%;
-            padding: 0.75rem;
-            border-radius: var(--radius-md);
-            background: var(--color-primary);
-            color: white;
-            border: none;
-            font-weight: 600;
-            cursor: pointer;
-        }
-        .btn-secondary {
-            padding: 0.5rem 1rem;
-            border-radius: var(--radius-md);
-            background: transparent;
-            border: 1px solid var(--color-text-secondary);
-            color: var(--color-text);
-            cursor: pointer;
-        }
-        .btn-link {
-            background: none;
-            border: none;
-            color: var(--color-primary);
-            margin-top: 1rem;
-            cursor: pointer;
-            font-size: 0.9rem;
-            text-decoration: underline;
-        }
-        .auth-message {
-            margin-top: 1rem;
-            color: #fbaceb;
-            font-size: 0.9rem;
-        }
-      `}</style>
         </div>
     );
 };
