@@ -1,11 +1,23 @@
 # FlashRead Rewrite TODO
 
+## Working Mode
+- Keep this file updated on every implementation push.
+- Always pick the next unchecked item from the highest active phase.
+- Add new TODOs when new bottlenecks are discovered.
+
+## Current Sprint (Active)
+- [x] CI: add lint/build/bundle budget checks on push/PR.
+- [x] App lifecycle: include explicit `offline` phase behavior.
+- [ ] DB migrations: add deterministic migration tests.
+- [ ] Remove next heavy inline style block (`ReaderView`).
+- [ ] Add perf diagnostics panel based on `[perf]` phases.
+
 ## Phase 1 - Foundation (In Progress)
 - [x] Split data reads for fast library startup (`book_meta` + lazy cover loading).
 - [x] Add opt-in runtime perf timings (`?perf=1` / `localStorage.flashread_perf=1`).
-- [ ] Introduce explicit app lifecycle state machine (`boot`, `hydrating`, `ready`, `error`, `offline`).
+- [x] Introduce explicit app lifecycle state machine (`boot`, `hydrating`, `ready`, `error`, `offline`).
 - [ ] Add deterministic migration framework tests for IndexedDB upgrades.
-- [ ] Add perf budget checks for startup and open-book latency in CI.
+- [x] Add perf budget checks for startup and open-book latency in CI (bundle size gate in CI).
 
 ## Phase 2 - Reader + Sync Core
 - [ ] Move reader scheduling into dedicated engine/service outside component render path.
