@@ -11,7 +11,7 @@
 - [x] DB migrations: add deterministic migration tests.
 - [x] Remove next heavy inline style block (`ReaderView`).
 - [x] Add perf diagnostics panel based on `[perf]` phases.
-- [~] Repo cleanup: remove stale docs/files, add ownership notes, and archive obsolete guides (partial: docs index + contributing guide added).
+- [x] Repo cleanup: remove stale docs/files, add ownership notes, and archive obsolete guides.
 
 ## Phase 1 - Foundation (In Progress)
 - [x] Split data reads for fast library startup (`book_meta` + lazy cover loading).
@@ -52,7 +52,7 @@
 - [ ] Structured telemetry/error reporting with privacy-safe payloads.
 
 ## Phase 7 - Repo Cleanup (New)
-- [ ] Audit root files and archive docs no longer used by current architecture.
+- [x] Audit root files and archive docs no longer used by current architecture.
 - [x] Add `docs/` structure with clear active vs legacy references.
 - [ ] Remove dead code paths, unused components, and stale comments.
 - [x] Add a `CONTRIBUTING.md` with coding/runtime/perf guardrails.
