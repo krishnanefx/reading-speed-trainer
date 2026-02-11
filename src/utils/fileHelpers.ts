@@ -1,11 +1,11 @@
 import JSZip from 'jszip';
 
-// Keywords to identify frontmatter (Skip these until we hit main content)
-// Keeping these for potential future use, but currently we are aggressive in extracting everything.
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-// Keywords lists removed to fix linting errors (unused)
+const MAX_EPUB_SIZE_BYTES = 20 * 1024 * 1024; // 20MB safety cap
 
 export const parseEpub = async (file: File): Promise<{ text: string; cover?: string }> => {
+    if (file.size > MAX_EPUB_SIZE_BYTES) {
+        throw new Error('EPUB file is too large. Please use a file under 20MB.');
+    }
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = async (e) => {
@@ -15,7 +15,6 @@ export const parseEpub = async (file: File): Promise<{ text: string; cover?: str
             }
 
             try {
-                console.log("Starting reliable EPUB extraction via JSZip...");
                 const jszip = new JSZip();
                 const zip = await jszip.loadAsync(e.target.result as ArrayBuffer);
 
@@ -37,7 +36,6 @@ export const parseEpub = async (file: File): Promise<{ text: string; cover?: str
                 let coverImage: string | undefined;
 
                 if (opfPath && zip.file(opfPath)) {
-                    console.log("Found OPF file:", opfPath);
                     const opfContent = await zip.file(opfPath)!.async('text');
                     const parser = new DOMParser();
                     const opfDoc = parser.parseFromString(opfContent, 'application/xml');
@@ -73,7 +71,7 @@ export const parseEpub = async (file: File): Promise<{ text: string; cover?: str
                     if (coverItem) {
                         let href = coverItem.getAttribute('href');
                         if (href) {
-                            try { href = decodeURIComponent(href); } catch (e) { /* ignore */ }
+                            try { href = decodeURIComponent(href); } catch { /* ignore */ }
                             const coverPath = opfDir + href;
                             const coverFile = zip.file(coverPath);
                             if (coverFile) {
@@ -84,7 +82,6 @@ export const parseEpub = async (file: File): Promise<{ text: string; cover?: str
                                     r.onloadend = () => res(r.result as string);
                                     r.readAsDataURL(blob);
                                 });
-                                console.log("Extracted cover image.");
                             }
                         }
                     }
@@ -97,7 +94,7 @@ export const parseEpub = async (file: File): Promise<{ text: string; cover?: str
                         const idref = itemref.getAttribute('idref');
                         if (idref && idToHref[idref]) {
                             let href = idToHref[idref];
-                            try { href = decodeURIComponent(href); } catch (e) { /* ignore */ }
+                            try { href = decodeURIComponent(href); } catch { /* ignore */ }
                             return opfDir + href;
                         }
                         return null;
@@ -108,8 +105,6 @@ export const parseEpub = async (file: File): Promise<{ text: string; cover?: str
                         /\.(html|xhtml|htm)$/i.test(path) && !path.includes('__MACOSX')
                     ).sort();
                 }
-
-                console.log(`Found ${spineHrefs.length} text sections to parse.`);
 
                 // 2. Parse text from each file in order
                 const texts: string[] = [];
@@ -141,7 +136,6 @@ export const parseEpub = async (file: File): Promise<{ text: string; cover?: str
                     return;
                 }
 
-                console.log("Extraction complete.");
                 resolve({
                     text: texts.join('\n\n'),
                     cover: coverImage

@@ -17,7 +17,7 @@ Built with a focus on performance, battery efficiency, and offline-first reliabi
 
 ## 🛠️ Tech Stack
 
--   **Frontend**: React 18, TypeScript, Vite
+-   **Frontend**: React 19, TypeScript, Vite
 -   **State Management**: React Hooks (custom `useReader`), Local State
 -   **Database**: IndexedDB (via `idb`) for local storage, Supabase for cloud sync
 -   **Styling**: Pure CSS Variables with a responsive, modern design system
@@ -31,6 +31,15 @@ The codebase follows strict performance guidelines to ensure smooth text streami
 -   **Memoization**: Heavy components and calculation-intensive logic (like Bionic text processing) are memoized using `React.memo` and `useMemo`.
 -   **Efficient Loops**: The critical RSVP timing loop uses `setTimeout` with drift correction logic and avoids React state thrashing.
 -   **Clean Code**: Component-driven architecture with clear separation of concerns (Logic vs UI).
+
+## ✅ Recent Hardening (Feb 2026)
+
+-   Lint baseline is clean (`npm run lint`) and strict TypeScript checks pass in production build.
+-   Removed `any`/`@ts-ignore` hot paths and replaced browser `alert/confirm/prompt` UX with in-app toasts/modals.
+-   Added safer EPUB handling with upload size caps and reduced production console noise.
+-   Improved RSVP pacing stability with drift-corrected scheduling in `useReader`.
+-   Added Netlify security headers/CSP at response-header level (instead of meta tag), plus tighter policy defaults.
+-   Fixed PWA manifest icon mismatch and updated docs for React 19 stack.
 
 ## 🚦 Getting Started
 

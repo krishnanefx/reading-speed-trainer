@@ -17,14 +17,20 @@ import { isCloudSyncEnabled, supabase } from './lib/supabase';
 import { useNetwork } from './hooks/useNetwork';
 import { processSyncQueue } from './utils/db';
 
+type AppView = 'library' | 'reader' | 'settings' | 'stats' | 'gym' | 'achievements';
+const APP_VIEWS: readonly AppView[] = ['library', 'reader', 'settings', 'stats', 'gym', 'achievements'];
+
+const isAppView = (value: string): value is AppView => {
+  return (APP_VIEWS as readonly string[]).includes(value);
+};
+
 function App() {
   // Navigation State
-  const [view, setView] = useState<'library' | 'reader' | 'settings' | 'stats' | 'gym' | 'achievements'>('library');
+  const [view, setView] = useState<AppView>('library');
   const [currentBook, setCurrentBook] = useState<Book | null>(null);
 
   // User Session State
-  const [sessionUser, setSessionUser] = useState<any>(null);
-  const [gamificationProgress, setGamificationProgress] = useState<any>(null);
+  const [sessionUser, setSessionUser] = useState<{ id: string } | null>(null);
 
   // Network State
   const isOnline = useNetwork();
@@ -43,12 +49,9 @@ function App() {
   const [defaultWpm, setDefaultWpm] = useState(300);
   const [defaultChunkSize, setDefaultChunkSize] = useState(1);
   const [defaultFont, setDefaultFont] = useState('mono');
-  const [defaultFontSize, setDefaultFontSize] = useState(3);
+  const [defaultFontSize] = useState(3);
   const [bionicMode, setBionicMode] = useState(false);
   const [autoAccelerate, setAutoAccelerate] = useState(false);
-  const [isFocusMode, setIsFocusMode] = useState(false); // Only used for container class on App div if needed, but ReaderView handles its own focus mode. 
-  // Actually, ReaderView fully handles focus mode UI. App container might not need 'focus-mode' class if ReaderView takes over.
-  // But let's keep it clean.
 
   // Auth Session
   useEffect(() => {
@@ -72,7 +75,6 @@ function App() {
   useEffect(() => {
     if (!sessionUser) return;
     const interval = setInterval(async () => {
-      console.log('Running Auto-Sync...');
       try {
         await syncFromCloud();
       } catch (e) {
@@ -100,8 +102,6 @@ function App() {
       setDefaultFont(prefFont);
       setBionicMode(prefBionic);
       setAutoAccelerate(prefAuto);
-      setGamificationProgress(loadedProgress);
-
       document.documentElement.setAttribute('data-theme', prefTheme);
 
       if (sessionUser) {
@@ -110,7 +110,6 @@ function App() {
         if (postSync.theme && postSync.theme !== prefTheme) {
           document.documentElement.setAttribute('data-theme', postSync.theme);
         }
-        setGamificationProgress(postSync);
         // Update prefs if cloud is different
         if (postSync.defaultWpm) setDefaultWpm(postSync.defaultWpm);
       }
@@ -216,7 +215,7 @@ function App() {
   };
 
   const handleNavigate = useCallback((newView: string) => {
-    // @ts-ignore
+    if (!isAppView(newView)) return;
     setView(newView);
     if (newView !== 'reader') setCurrentBook(null);
   }, []);
@@ -232,8 +231,7 @@ function App() {
         } else {
           setView('reader');
         }
-      } else if (['settings', 'stats', 'gym', 'achievements', 'library'].includes(hash)) {
-        // @ts-ignore
+      } else if (isAppView(hash)) {
         setView(hash);
       }
     };
@@ -268,6 +266,7 @@ function App() {
 
         {view === 'reader' && currentBook && (
           <ReaderView
+            key={currentBook.id}
             book={currentBook}
             initialWpm={currentBook.wpm || defaultWpm}
             initialChunkSize={defaultChunkSize}

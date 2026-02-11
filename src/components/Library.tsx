@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { getBooks, saveBook, deleteBook } from '../utils/db';
 import type { Book } from '../utils/db';
 import { parseEpub } from '../utils/fileHelpers';
+import { toast } from 'react-hot-toast';
 
 interface LibraryProps {
     onSelectBook: (book: Book) => void;
@@ -10,6 +11,9 @@ interface LibraryProps {
 const Library: React.FC<LibraryProps> = ({ onSelectBook }) => {
     const [books, setBooks] = useState<Book[]>([]);
     const [isLoading, setIsLoading] = useState(false);
+    const [bookToDelete, setBookToDelete] = useState<Book | null>(null);
+    const [isQuickPasteOpen, setIsQuickPasteOpen] = useState(false);
+    const [quickPasteText, setQuickPasteText] = useState('');
 
     useEffect(() => {
         loadBooks();
@@ -55,18 +59,53 @@ const Library: React.FC<LibraryProps> = ({ onSelectBook }) => {
             loadBooks();
         } catch (error) {
             console.error('Error reading file:', error);
-            alert('Failed to read file');
+            toast.error('Failed to read file.');
         } finally {
             setIsLoading(false);
             event.target.value = '';
         }
     };
 
-    const handleDelete = async (e: React.MouseEvent, id: string) => {
+    const handleDeleteClick = (e: React.MouseEvent, book: Book) => {
         e.stopPropagation();
-        if (confirm('Are you sure you want to delete this book?')) {
-            await deleteBook(id);
-            loadBooks();
+        setBookToDelete(book);
+    };
+
+    const handleConfirmDelete = async () => {
+        if (!bookToDelete) return;
+        await deleteBook(bookToDelete.id);
+        toast.success(`Deleted "${bookToDelete.title}"`);
+        setBookToDelete(null);
+        await loadBooks();
+    };
+
+    const handleQuickPasteSubmit = async () => {
+        if (!quickPasteText.trim()) {
+            toast.error('Paste text before saving.');
+            return;
+        }
+
+        setIsLoading(true);
+        try {
+            const newBook: Book = {
+                id: Date.now().toString(),
+                title: `Quick Read ${new Date().toLocaleTimeString()}`,
+                content: quickPasteText,
+                progress: 0,
+                totalWords: quickPasteText.trim().split(/\s+/).length,
+                currentIndex: 0,
+                lastRead: Date.now(),
+                wpm: 300
+            };
+            await saveBook(newBook);
+            await loadBooks();
+            setQuickPasteText('');
+            setIsQuickPasteOpen(false);
+            toast.success('Quick read saved.');
+        } catch {
+            toast.error('Failed to save quick read.');
+        } finally {
+            setIsLoading(false);
         }
     };
 
@@ -98,30 +137,7 @@ const Library: React.FC<LibraryProps> = ({ onSelectBook }) => {
                 <div className="action-buttons" style={{ display: 'flex', gap: '0.5rem' }}>
                     <button
                         className="btn-upload btn-secondary"
-                        onClick={async () => {
-                            const text = prompt("Paste your text here to speed read immediately:");
-                            if (text && text.trim().length > 0) {
-                                setIsLoading(true);
-                                try {
-                                    const newBook: Book = {
-                                        id: Date.now().toString(),
-                                        title: `Quick Read ${new Date().toLocaleTimeString()}`,
-                                        content: text,
-                                        progress: 0,
-                                        totalWords: text.trim().split(/\s+/).length,
-                                        currentIndex: 0,
-                                        lastRead: Date.now(),
-                                        wpm: 300
-                                    };
-                                    await saveBook(newBook);
-                                    await loadBooks();
-                                } catch (e) {
-                                    alert("Failed to save text");
-                                } finally {
-                                    setIsLoading(false);
-                                }
-                            }
-                        }}
+                        onClick={() => setIsQuickPasteOpen(true)}
                         disabled={isLoading}
                     >
                         📋 Paste
@@ -177,7 +193,7 @@ const Library: React.FC<LibraryProps> = ({ onSelectBook }) => {
                             </div>
                         </div>
 
-                        <button className="delete-btn" onClick={(e) => handleDelete(e, book.id)} title="Delete">
+                        <button className="delete-btn" onClick={(e) => handleDeleteClick(e, book)} title="Delete">
                             &times;
                         </button>
                     </div>
@@ -189,6 +205,35 @@ const Library: React.FC<LibraryProps> = ({ onSelectBook }) => {
                     </div>
                 )}
             </div>
+            {bookToDelete && (
+                <div className="confirm-overlay" onClick={() => setBookToDelete(null)}>
+                    <div className="confirm-modal" onClick={(e) => e.stopPropagation()}>
+                        <h3>Delete Book</h3>
+                        <p>Delete "{bookToDelete.title}" from your library?</p>
+                        <div className="confirm-actions">
+                            <button className="btn-upload btn-secondary" onClick={() => setBookToDelete(null)}>Cancel</button>
+                            <button className="btn-upload" onClick={handleConfirmDelete}>Delete</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {isQuickPasteOpen && (
+                <div className="confirm-overlay" onClick={() => setIsQuickPasteOpen(false)}>
+                    <div className="confirm-modal" onClick={(e) => e.stopPropagation()}>
+                        <h3>Quick Paste</h3>
+                        <textarea
+                            value={quickPasteText}
+                            onChange={(e) => setQuickPasteText(e.target.value)}
+                            placeholder="Paste text to create a new quick-read entry"
+                            rows={8}
+                        />
+                        <div className="confirm-actions">
+                            <button className="btn-upload btn-secondary" onClick={() => setIsQuickPasteOpen(false)}>Cancel</button>
+                            <button className="btn-upload" onClick={handleQuickPasteSubmit}>Save</button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             <style>{`
         .library-container {
@@ -258,6 +303,36 @@ const Library: React.FC<LibraryProps> = ({ onSelectBook }) => {
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(10px); }
             to { opacity: 1; transform: translateY(0); }
+        }
+        .confirm-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.55);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+        }
+        .confirm-modal {
+            width: min(560px, 92%);
+            background: var(--color-surface-solid);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: var(--radius-lg);
+            padding: 1rem;
+        }
+        .confirm-modal textarea {
+            width: 100%;
+            background: rgba(0,0,0,0.2);
+            border: 1px solid rgba(255,255,255,0.14);
+            color: var(--color-text);
+            border-radius: var(--radius-sm);
+            padding: 0.75rem;
+            margin: 0.75rem 0;
+        }
+        .confirm-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 0.5rem;
         }
 
         .book-card {

@@ -12,15 +12,9 @@ export const Achievements: React.FC<AchievementsProps> = ({ onBack }) => {
     const [sessionCount, setSessionCount] = useState(0);
 
     useEffect(() => {
-        loadData();
+        void getUserProgress().then(setProgress);
+        void getSessions().then((sessions) => setSessionCount(sessions.length));
     }, []);
-
-    const loadData = async () => {
-        const p = await getUserProgress();
-        setProgress(p);
-        const sessions = await getSessions();
-        setSessionCount(sessions.length);
-    };
 
     if (!progress) {
         return <div className="achievements-container">Loading...</div>;
