@@ -67,7 +67,7 @@
 ## Phase 8 - Architecture Refactors (New)
 - [ ] **Split `db.ts` monolith** — at 1106 lines and 63 exported functions, this file handles DB init, sync queue, cloud push/pull, import/export, CRUD, gamification progress, and conflict resolution. Split into `db/index.ts`, `db/sync.ts`, `db/cloud.ts`, `db/importExport.ts`, and `db/progress.ts`.
 - [ ] **Extract `App.tsx` concerns** — `App.tsx` (345 lines) handles routing, auth session, sync orchestration, settings hydration, and gamification logic all in one component. Extract a `useAppState` hook or context for session/sync, move gamification to `utils/gamification.ts`, and consider a lightweight router.
-- [ ] **Unify settings hydration** — `App.tsx` reads settings from DB-first with localStorage fallback during `loadData`, but `refreshSettings` reads localStorage directly, creating a split source of truth. Consolidate into a single `useSettings` hook backed by DB with localStorage as write-through cache.
+- [x] **Unify settings hydration** — `App` and `Settings` now use shared settings helpers (DB + localStorage write-through) for consistent load/save.
 - [x] **Stabilize callback identities in `App.tsx`** — `onBack` handlers and `onUpdateStats` are now stable via `useCallback`.
 - [x] **Fix hash-based routing edge cases** — added guard refs to prevent hashchange/view-sync feedback loops.
 - [x] **Consolidate font-size setting** — removed `useState(3)` indirection in `App.tsx` and use constant default value.

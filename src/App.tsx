@@ -20,6 +20,7 @@ import { useNetwork } from './hooks/useNetwork';
 import { processSyncQueue, subscribeSyncStatus } from './utils/db';
 import { perfLog } from './utils/perf';
 import { ViewErrorBoundary } from './components/ViewErrorBoundary';
+import { loadAppSettings } from './utils/settings';
 
 type AppView = 'library' | 'reader' | 'settings' | 'stats' | 'gym' | 'achievements';
 type AppPhase = 'boot' | 'hydrating' | 'ready' | 'offline' | 'error';
@@ -104,31 +105,24 @@ function App() {
   useEffect(() => {
     const loadData = async () => {
       setPhase('hydrating');
-      const loadedProgress = await getUserProgress();
+      const settings = await loadAppSettings();
 
-      const prefWpm = loadedProgress.defaultWpm || parseInt(localStorage.getItem('defaultWpm') || '300');
-      const prefChunk = loadedProgress.defaultChunkSize || parseInt(localStorage.getItem('defaultChunkSize') || '1');
-      const prefFont = loadedProgress.defaultFont || localStorage.getItem('defaultFont') || 'mono';
-      const prefTheme = loadedProgress.theme || localStorage.getItem('theme') || 'default';
-      const prefBionic = loadedProgress.bionicMode ?? (localStorage.getItem('bionicMode') === 'true');
-      const prefAuto = loadedProgress.autoAccelerate ?? (localStorage.getItem('autoAccelerate') === 'true');
-      // font size not in DB yet? defaulting to 3.
-
-      setDefaultWpm(prefWpm);
-      setDefaultChunkSize(prefChunk);
-      setDefaultFont(prefFont);
-      setBionicMode(prefBionic);
-      setAutoAccelerate(prefAuto);
-      document.documentElement.setAttribute('data-theme', prefTheme);
+      setDefaultWpm(settings.defaultWpm);
+      setDefaultChunkSize(settings.defaultChunkSize);
+      setDefaultFont(settings.defaultFont);
+      setBionicMode(settings.bionicMode);
+      setAutoAccelerate(settings.autoAccelerate);
+      document.documentElement.setAttribute('data-theme', settings.theme);
 
       if (sessionUser) {
         await syncFromCloud();
-        const postSync = await getUserProgress();
-        if (postSync.theme && postSync.theme !== prefTheme) {
-          document.documentElement.setAttribute('data-theme', postSync.theme);
-        }
-        // Update prefs if cloud is different
-        if (postSync.defaultWpm) setDefaultWpm(postSync.defaultWpm);
+        const syncedSettings = await loadAppSettings();
+        setDefaultWpm(syncedSettings.defaultWpm);
+        setDefaultChunkSize(syncedSettings.defaultChunkSize);
+        setDefaultFont(syncedSettings.defaultFont);
+        setBionicMode(syncedSettings.bionicMode);
+        setAutoAccelerate(syncedSettings.autoAccelerate);
+        document.documentElement.setAttribute('data-theme', syncedSettings.theme);
       }
       setPhase('ready');
     };
@@ -138,12 +132,14 @@ function App() {
     });
   }, [sessionUser]);
 
-  const refreshSettings = useCallback(() => {
-    // Logic to reload settings if changed in Settings view
-    const savedBionic = localStorage.getItem('bionicMode');
-    setBionicMode(savedBionic === 'true');
-    const savedAuto = localStorage.getItem('autoAccelerate');
-    setAutoAccelerate(savedAuto === 'true');
+  const refreshSettings = useCallback(async () => {
+    const settings = await loadAppSettings();
+    setDefaultWpm(settings.defaultWpm);
+    setDefaultChunkSize(settings.defaultChunkSize);
+    setDefaultFont(settings.defaultFont);
+    setBionicMode(settings.bionicMode);
+    setAutoAccelerate(settings.autoAccelerate);
+    document.documentElement.setAttribute('data-theme', settings.theme);
   }, []);
 
   // Gamification Logic

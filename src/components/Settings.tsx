@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { getUserProgress, updateUserProgress, exportUserData, importUserData } from '../utils/db';
+import { exportUserData, importUserData } from '../utils/db';
 import { Auth } from './Auth';
 import { toast } from 'react-hot-toast';
 import { devError } from '../utils/logger';
 import './Settings.css';
+import { loadAppSettings, saveAppSettings } from '../utils/settings';
 
 interface SettingsProps {
     onBack: () => void;
@@ -20,45 +21,36 @@ export const Settings: React.FC<SettingsProps> = ({ onBack, updateTheme }) => {
     const [dailyGoal, setDailyGoal] = useState(5000);
 
     useEffect(() => {
-        // Load from localStorage
-        const savedWpm = localStorage.getItem('defaultWpm');
-        if (savedWpm) setDefaultWpm(parseInt(savedWpm, 10));
-
-        const savedChunkSize = localStorage.getItem('defaultChunkSize');
-        if (savedChunkSize) setDefaultChunkSize(parseInt(savedChunkSize, 10));
-
-        const savedFont = localStorage.getItem('defaultFont');
-        if (savedFont) setDefaultFont(savedFont);
-
-        const savedTheme = localStorage.getItem('theme');
-        if (savedTheme) setDefaultTheme(savedTheme);
-
-        const savedBionic = localStorage.getItem('bionicMode');
-        if (savedBionic) setBionicMode(savedBionic === 'true');
-
-        const savedAuto = localStorage.getItem('autoAccelerate');
-        if (savedAuto) setAutoAccelerate(savedAuto === 'true');
-
-        // Load daily goal from IndexedDB
-        getUserProgress().then(progress => {
-            setDailyGoal(progress.dailyGoal);
+        let mounted = true;
+        void loadAppSettings().then((settings) => {
+            if (!mounted) return;
+            setDefaultWpm(settings.defaultWpm);
+            setDefaultChunkSize(settings.defaultChunkSize);
+            setDefaultFont(settings.defaultFont);
+            setDefaultTheme(settings.theme);
+            setBionicMode(settings.bionicMode);
+            setAutoAccelerate(settings.autoAccelerate);
+            setDailyGoal(settings.dailyGoal);
         });
+        return () => {
+            mounted = false;
+        };
     }, []);
 
     const handleSave = async () => {
-        localStorage.setItem('defaultWpm', defaultWpm.toString());
-        localStorage.setItem('defaultChunkSize', defaultChunkSize.toString());
-        localStorage.setItem('defaultFont', defaultFont);
-        localStorage.setItem('theme', defaultTheme);
-        localStorage.setItem('bionicMode', bionicMode.toString());
-        localStorage.setItem('autoAccelerate', autoAccelerate.toString());
-
-        // Save daily goal to IndexedDB
-        await updateUserProgress({ dailyGoal });
+        await saveAppSettings({
+            defaultWpm,
+            defaultChunkSize,
+            defaultFont,
+            theme: defaultTheme,
+            bionicMode,
+            autoAccelerate,
+            dailyGoal,
+        });
 
         // Apply theme immediately
         document.documentElement.setAttribute('data-theme', defaultTheme);
-        updateTheme(); // Notify parent content might need refresh
+        await updateTheme(); // Notify parent content might need refresh
         onBack();
     };
 
