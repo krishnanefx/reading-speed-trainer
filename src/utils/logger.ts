@@ -1,5 +1,6 @@
 const isDev = import.meta.env.DEV;
 const isProd = import.meta.env.PROD;
+const telemetryEndpoint = (import.meta.env.VITE_LOG_SINK_URL || '').trim();
 
 type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 
@@ -33,6 +34,31 @@ export interface LogEvent {
   ts: string;
 }
 
+const canShipTelemetry = (): boolean => {
+  return isProd && telemetryEndpoint.length > 0;
+};
+
+const shipTelemetry = (payload: LogEvent) => {
+  if (!canShipTelemetry()) return;
+  if (payload.level === 'debug' || payload.level === 'info') return;
+
+  const body = JSON.stringify(payload);
+  try {
+    if (typeof navigator !== 'undefined' && typeof navigator.sendBeacon === 'function') {
+      navigator.sendBeacon(telemetryEndpoint, new Blob([body], { type: 'application/json' }));
+      return;
+    }
+    void fetch(telemetryEndpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body,
+      keepalive: true,
+    });
+  } catch {
+    // Never break app flow on telemetry shipping failures.
+  }
+};
+
 export const emitLog = (level: LogLevel, event: string, message?: string, meta?: unknown) => {
   if (isProd && level === 'debug') return;
 
@@ -43,6 +69,7 @@ export const emitLog = (level: LogLevel, event: string, message?: string, meta?:
     meta: sanitizeMeta(meta),
     ts: new Date().toISOString(),
   };
+  shipTelemetry(payload);
 
   if (level === 'error') {
     console.error(payload);
