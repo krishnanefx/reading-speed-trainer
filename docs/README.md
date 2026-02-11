@@ -6,13 +6,13 @@
 - `../CONTRIBUTING.md`: contribution and quality guardrails.
 
 ## Operations
-- `../DEPLOY.md`: deployment notes.
-- `../DB_SETUP_GUIDE.md`: Supabase and DB setup.
-- `../DB_FULL_SYNC_SETUP.md`: end-to-end sync setup.
-- `../DB_REPAIR_GUIDE.md`: local/cloud repair steps.
+- `ops/DEPLOY.md`: deployment notes.
+- `ops/DB_SETUP_GUIDE.md`: Supabase and DB setup.
+- `ops/DB_FULL_SYNC_SETUP.md`: end-to-end sync setup.
+- `ops/DB_REPAIR_GUIDE.md`: local/cloud repair steps.
 
 ## Legacy / Review Needed
-- `../GITHUB_INSTRUCTIONS.md`: old GitHub flow notes; keep until fully replaced by CI/PR docs.
+- `legacy/GITHUB_INSTRUCTIONS.md`: old GitHub flow notes; keep until fully replaced by CI/PR docs.
 
 ## Cleanup Policy
 - New docs should live under `docs/` unless they are top-level entry points (`README.md`, `CONTRIBUTING.md`).
