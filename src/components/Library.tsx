@@ -1,23 +1,23 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { getBooks, saveBook, deleteBook } from '../utils/db';
-import type { Book } from '../utils/db';
+import { getLibraryBooks, saveBook, deleteBook } from '../utils/db';
+import type { Book, LibraryBook } from '../utils/db';
 import { parseEpub } from '../utils/fileHelpers';
 import { toast } from 'react-hot-toast';
 import { devError } from '../utils/logger';
 
 interface LibraryProps {
-    onSelectBook: (book: Book) => void;
+    onSelectBook: (bookId: string) => void | Promise<void>;
 }
 
 interface BookCardProps {
-    book: Book;
+    book: LibraryBook;
     timeLeft: string;
-    onSelect: (book: Book) => void;
-    onDelete: (e: React.MouseEvent, book: Book) => void;
+    onSelect: (bookId: string) => void | Promise<void>;
+    onDelete: (e: React.MouseEvent, book: LibraryBook) => void;
 }
 
 const BookCard = React.memo(({ book, timeLeft, onSelect, onDelete }: BookCardProps) => (
-    <div className="book-card" onClick={() => onSelect(book)}>
+    <div className="book-card" onClick={() => onSelect(book.id)}>
         <div className="book-cover" style={
             book.cover ? {
                 backgroundImage: `url(${book.cover})`,
@@ -57,9 +57,9 @@ const BookCard = React.memo(({ book, timeLeft, onSelect, onDelete }: BookCardPro
 ));
 
 const Library: React.FC<LibraryProps> = ({ onSelectBook }) => {
-    const [books, setBooks] = useState<Book[]>([]);
+    const [books, setBooks] = useState<LibraryBook[]>([]);
     const [isLoading, setIsLoading] = useState(false);
-    const [bookToDelete, setBookToDelete] = useState<Book | null>(null);
+    const [bookToDelete, setBookToDelete] = useState<LibraryBook | null>(null);
     const [isQuickPasteOpen, setIsQuickPasteOpen] = useState(false);
     const [quickPasteText, setQuickPasteText] = useState('');
 
@@ -68,7 +68,7 @@ const Library: React.FC<LibraryProps> = ({ onSelectBook }) => {
     }, []);
 
     const loadBooks = async () => {
-        const loadedBooks = await getBooks();
+        const loadedBooks = await getLibraryBooks();
         setBooks(loadedBooks.sort((a, b) => (b.lastRead || 0) - (a.lastRead || 0)));
     };
 
@@ -114,7 +114,7 @@ const Library: React.FC<LibraryProps> = ({ onSelectBook }) => {
         }
     };
 
-    const handleDeleteClick = (e: React.MouseEvent, book: Book) => {
+    const handleDeleteClick = (e: React.MouseEvent, book: LibraryBook) => {
         e.stopPropagation();
         setBookToDelete(book);
     };
@@ -157,11 +157,8 @@ const Library: React.FC<LibraryProps> = ({ onSelectBook }) => {
         }
     };
 
-    const getEstimatedTimeLeft = useCallback((book: Book) => {
-        const textContent = book.content || book.text;
-        if (!textContent) return '';
-        // totalWords is now a field on Book, but fall back to calculating if missing (legacy)
-        const totalWords = book.totalWords || textContent.trim().split(/\s+/).length;
+    const getEstimatedTimeLeft = useCallback((book: LibraryBook) => {
+        const totalWords = book.totalWords || 0;
         const wordsLeft = Math.max(0, totalWords - (book.currentIndex || 0));
 
         if (wordsLeft === 0) return 'Finished';
