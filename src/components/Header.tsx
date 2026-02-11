@@ -1,5 +1,5 @@
 import React from 'react';
-import type { SyncStatus } from '../utils/db';
+import type { SyncStatus } from '../utils/db/index';
 
 interface HeaderProps {
   onNavigate: (view: string) => void;

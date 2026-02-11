@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { getBookCount, getLibraryBookCovers, getLibraryBooks, rebuildLibraryBookIndex, saveBook, deleteBook } from '../utils/db';
-import type { Book, LibraryBook } from '../utils/db';
+import { getBookCount, getLibraryBookCovers, getLibraryBooks, rebuildLibraryBookIndex, saveBook, deleteBook } from '../utils/db/index';
+import type { Book, LibraryBook } from '../utils/db/index';
 import { parseEpub } from '../utils/fileHelpers';
 import { toast } from 'react-hot-toast';
 import { devError } from '../utils/logger';

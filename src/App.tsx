@@ -11,21 +11,20 @@ const Stats = lazy(() => import('./components/Stats').then(m => ({ default: m.St
 const Gym = lazy(() => import('./components/Gym').then(m => ({ default: m.Gym })));
 const Achievements = lazy(() => import('./components/Achievements').then(m => ({ default: m.Achievements })));
 
-import { getBook, syncFromCloud } from './utils/db';
-import type { Book } from './utils/db';
-import type { SyncStatus } from './utils/db';
+import { getBook } from './utils/db/index';
+import type { Book } from './utils/db/index';
+import type { SyncStatus } from './utils/db/index';
 import { isCloudSyncEnabled } from './lib/supabase';
 import { useNetwork } from './hooks/useNetwork';
-import { processSyncQueue, subscribeSyncStatus } from './utils/db';
+import { processSyncQueue, subscribeSyncStatus } from './utils/db/index';
 import { perfLog } from './utils/perf';
 import { ViewErrorBoundary } from './components/ViewErrorBoundary';
-import { loadAppSettings } from './utils/settings';
 import { recordSessionAndUpdateProgress } from './utils/gamification';
 import { useHashViewSync } from './hooks/useHashViewSync';
 import { useAuthSession } from './hooks/useAuthSession';
+import { useAppBootstrap, type AppPhase } from './hooks/useAppBootstrap';
 
 type AppView = 'library' | 'reader' | 'settings' | 'stats' | 'gym' | 'achievements';
-type AppPhase = 'boot' | 'hydrating' | 'ready' | 'offline' | 'error';
 const APP_VIEWS: readonly AppView[] = ['library', 'reader', 'settings', 'stats', 'gym', 'achievements'];
 
 const isAppView = (value: string): value is AppView => {
@@ -35,11 +34,19 @@ const isAppView = (value: string): value is AppView => {
 function App() {
   // Navigation State
   const [view, setView] = useState<AppView>('library');
-  const [phase, setPhase] = useState<AppPhase>('boot');
   const [currentBook, setCurrentBook] = useState<Book | null>(null);
 
   // User Session State
   const sessionUser = useAuthSession();
+  const {
+    phase,
+    defaultWpm,
+    defaultChunkSize,
+    defaultFont,
+    bionicMode,
+    autoAccelerate,
+    refreshSettings,
+  } = useAppBootstrap(sessionUser);
 
   // Network State
   const isOnline = useNetwork();
@@ -66,64 +73,7 @@ function App() {
     }
   }, [isOnline]);
   const effectivePhase: AppPhase = phase === 'ready' && !isOnline ? 'offline' : phase;
-
-  // App Preferences (Default Settings)
-  const [defaultWpm, setDefaultWpm] = useState(300);
-  const [defaultChunkSize, setDefaultChunkSize] = useState(1);
-  const [defaultFont, setDefaultFont] = useState('mono');
   const defaultFontSize = 3;
-  const [bionicMode, setBionicMode] = useState(false);
-  const [autoAccelerate, setAutoAccelerate] = useState(false);
-
-  // Auto-Sync
-  useEffect(() => {
-    if (!sessionUser) return;
-    const interval = setInterval(async () => {
-      await syncFromCloud();
-    }, 5 * 60 * 1000);
-    return () => clearInterval(interval);
-  }, [sessionUser]);
-
-  // Load Initial Data
-  useEffect(() => {
-    const loadData = async () => {
-      setPhase('hydrating');
-      const settings = await loadAppSettings();
-
-      setDefaultWpm(settings.defaultWpm);
-      setDefaultChunkSize(settings.defaultChunkSize);
-      setDefaultFont(settings.defaultFont);
-      setBionicMode(settings.bionicMode);
-      setAutoAccelerate(settings.autoAccelerate);
-      document.documentElement.setAttribute('data-theme', settings.theme);
-
-      if (sessionUser) {
-        await syncFromCloud();
-        const syncedSettings = await loadAppSettings();
-        setDefaultWpm(syncedSettings.defaultWpm);
-        setDefaultChunkSize(syncedSettings.defaultChunkSize);
-        setDefaultFont(syncedSettings.defaultFont);
-        setBionicMode(syncedSettings.bionicMode);
-        setAutoAccelerate(syncedSettings.autoAccelerate);
-        document.documentElement.setAttribute('data-theme', syncedSettings.theme);
-      }
-      setPhase('ready');
-    };
-    loadData().catch(() => {
-      setPhase('error');
-      toast.error('App failed to initialize. Please refresh.');
-    });
-  }, [sessionUser]);
-
-  const refreshSettings = useCallback(async () => {
-    const settings = await loadAppSettings();
-    setDefaultWpm(settings.defaultWpm);
-    setDefaultChunkSize(settings.defaultChunkSize);
-    setDefaultFont(settings.defaultFont);
-    setBionicMode(settings.bionicMode);
-    setAutoAccelerate(settings.autoAccelerate);
-    document.documentElement.setAttribute('data-theme', settings.theme);
-  }, []);
 
   // Gamification Logic
   const handleSessionComplete = useCallback(async (wordsRead: number, sessionWpm: number, durationSeconds: number) => {

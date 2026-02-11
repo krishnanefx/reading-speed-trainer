@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { getUserProgress, updateUserProgress, getSessions } from '../utils/db';
+import { getUserProgress, updateUserProgress, getSessions } from '../utils/db/index';
 import { checkNewAchievements } from '../utils/achievements';
 import { toast } from 'react-hot-toast';
 import './Gym.css';
