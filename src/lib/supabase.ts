@@ -1,4 +1,5 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { devWarn } from '../utils/logger';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -10,7 +11,7 @@ let supabaseClient: SupabaseClient | null = null;
 if (isCloudSyncEnabled) {
     supabaseClient = createClient(supabaseUrl, supabaseAnonKey);
 } else {
-    console.warn('Supabase is not configured. Running in local-only mode.');
+    devWarn('Supabase is not configured. Running in local-only mode.');
 }
 
 export const supabase = supabaseClient;

@@ -1,5 +1,6 @@
 import { openDB } from 'idb';
 import { isCloudSyncEnabled, supabase } from '../lib/supabase';
+import { devError } from './logger';
 
 const DB_NAME = 'ReadingTrainerDB';
 const BOOKS_STORE = 'books';
@@ -8,6 +9,7 @@ const STORE_NAME = 'progress';
 const SYNC_QUEUE_STORE = 'sync_queue';
 const DB_VERSION = 3; // Incremented for sync queue
 const MAX_IMPORT_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
+const MAX_IMPORT_ITEMS = 50_000;
 const MAX_SYNC_RETRY_ATTEMPTS = 6;
 const BASE_SYNC_RETRY_MS = 5_000;
 
@@ -171,6 +173,33 @@ const toSafeNumber = (value: unknown, fallback: number, min = Number.NEGATIVE_IN
     return Math.min(max, Math.max(min, parsed));
 };
 
+const isRecord = (value: unknown): value is Record<string, unknown> => {
+    return typeof value === 'object' && value !== null && !Array.isArray(value);
+};
+
+const normalizeBackupPayload = (raw: unknown) => {
+    if (!isRecord(raw)) throw new Error('Invalid backup: expected object.');
+    const version = toSafeNumber(raw.version, 0, 0);
+    if (version !== 1) throw new Error('Unsupported backup version.');
+
+    const progress = raw.progress;
+    const sessions = raw.sessions;
+    const books = raw.books;
+
+    if (!isRecord(progress) || !Array.isArray(sessions) || !Array.isArray(books)) {
+        throw new Error('Invalid backup payload shape.');
+    }
+    if (sessions.length > MAX_IMPORT_ITEMS || books.length > MAX_IMPORT_ITEMS) {
+        throw new Error('Backup contains too many records.');
+    }
+
+    return {
+        progress: progress as Partial<UserProgress>,
+        sessions,
+        books,
+    };
+};
+
 const sanitizeBook = (book: Partial<Book>): Book => {
     const id = typeof book.id === 'string' && book.id.trim() ? book.id : crypto.randomUUID();
     const content = String(book.content ?? book.text ?? '');
@@ -288,7 +317,7 @@ const syncProgressToCloud = async (progress: UserProgress, queueOnFailure = true
         });
 
     if (error) {
-        console.error('Cloud Sync Error (Progress):', error);
+        devError('Cloud Sync Error (Progress):', error);
         if (queueOnFailure) {
             await addToSyncQueue('UPDATE_PROGRESS', progress);
         }
@@ -323,7 +352,7 @@ const syncSessionToCloud = async (s: Session, queueOnFailure = true): Promise<bo
         });
 
     if (error) {
-        console.error('Cloud Sync Error (Session):', error);
+        devError('Cloud Sync Error (Session):', error);
         if (queueOnFailure) {
             await addToSyncQueue('SYNC_SESSION', s);
         }
@@ -361,7 +390,7 @@ const syncBookToCloud = async (book: Book, queueOnFailure = true): Promise<boole
         });
 
     if (error) {
-        console.error('Cloud Sync Error (Book):', error);
+        devError('Cloud Sync Error (Book):', error);
         if (queueOnFailure) {
             await addToSyncQueue('SYNC_BOOK', book);
         }
@@ -385,7 +414,7 @@ const deleteBookFromCloud = async (id: string, queueOnFailure = true): Promise<b
 
     const { error } = await supabase!.from('books').delete().eq('id', id).eq('user_id', userId);
     if (error) {
-        console.error('Cloud Sync Error (Delete Book):', error);
+        devError('Cloud Sync Error (Delete Book):', error);
         if (queueOnFailure) {
             await addToSyncQueue('DELETE_BOOK', id);
         }
@@ -693,18 +722,9 @@ export const importUserData = async (jsonString: string): Promise<boolean> => {
             throw new Error('Import file is too large.');
         }
 
-        const data = JSON.parse(jsonString);
+        const parsed = JSON.parse(jsonString) as unknown;
+        const { progress: progressUpdate, sessions, books } = normalizeBackupPayload(parsed);
 
-        // Basic validation
-        if (!data || typeof data !== 'object' || !data.progress || !Array.isArray(data.sessions) || !Array.isArray(data.books)) {
-            throw new Error('Invalid data format');
-        }
-
-        // Clear existing data? Or merge?
-        // For simplicity: Overwrite/Merge logic
-        // We will overwrite progress, merge sessions/books (deduplicating by ID)
-
-        const progressUpdate = data.progress as Partial<UserProgress>;
         await updateUserProgress({
             ...DEFAULT_PROGRESS,
             ...progressUpdate,
@@ -726,21 +746,21 @@ export const importUserData = async (jsonString: string): Promise<boolean> => {
 
         // Import Sessions
         const txSession = db.transaction('sessions', 'readwrite');
-        for (const s of data.sessions) {
+        for (const s of sessions) {
             await txSession.store.put(sanitizeSession(s));
         }
         await txSession.done;
 
         // Import Books
         const txBooks = db.transaction('books', 'readwrite');
-        for (const b of data.books) {
+        for (const b of books) {
             await txBooks.store.put(sanitizeBook(b));
         }
         await txBooks.done;
 
         return true;
     } catch (e) {
-        console.error('Import failed:', e);
+        devError('Import failed:', e);
         return false;
     }
 };
