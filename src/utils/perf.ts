@@ -1,3 +1,5 @@
+import { logInfo } from './logger';
+
 type PerfMeta = Record<string, string | number | boolean | null | undefined>;
 export interface PerfEvent {
   phase: string;
@@ -30,8 +32,7 @@ export const perfLog = (phase: string, durationMs: number, meta?: PerfMeta) => {
   if (perfEvents.length > MAX_EVENTS) perfEvents.shift();
   for (const listener of perfListeners) listener([...perfEvents]);
 
-  const suffix = meta ? ` ${JSON.stringify(meta)}` : '';
-  console.info(`[perf] ${phase}: ${durationMs.toFixed(1)}ms${suffix}`);
+  logInfo('perf.phase', `${phase}: ${durationMs.toFixed(1)}ms`, meta);
 };
 
 export const getPerfEvents = (): PerfEvent[] => [...perfEvents];
