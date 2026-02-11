@@ -1,4 +1,4 @@
-import { getUserProgress, updateUserProgress } from './db';
+import { getUserProgress, updateUserProgress } from './db/index';
 
 export interface AppSettings {
   defaultWpm: number;

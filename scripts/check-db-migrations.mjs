@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-const dbFile = join(process.cwd(), 'src', 'utils', 'db.ts');
+const dbFile = join(process.cwd(), 'src', 'utils', 'db', 'core.ts');
 const localDataFile = join(process.cwd(), 'src', 'utils', 'db', 'localData.ts');
 const source = readFileSync(dbFile, 'utf8');
 const localDataSource = readFileSync(localDataFile, 'utf8');
