@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import ShortcutsHelp from './ShortcutsHelp';
+import './Controls.css';
 
 interface ControlsProps {
   isPlaying: boolean;
@@ -102,7 +103,6 @@ const ControlsComponent: React.FC<ControlsProps> = ({
                   key={f}
                   className={`btn-option ${font === f ? 'active' : ''}`}
                   onClick={() => setFont(f)}
-                  style={{ textTransform: 'capitalize' }}
                 >
                   {f}
                 </button>
@@ -130,9 +130,9 @@ const ControlsComponent: React.FC<ControlsProps> = ({
         </div>
 
         <div className="control-group">
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
+          <div className="progress-label-row">
             <label>Progress</label>
-            <label style={{ color: 'var(--color-primary)' }}>
+            <label className="progress-meta-label">
               {Math.round(progress * 100)}% • {timeLeft}
             </label>
           </div>
@@ -146,214 +146,6 @@ const ControlsComponent: React.FC<ControlsProps> = ({
         </div>
       </div>
 
-      <style>{`
-        .controls-container {
-          background: var(--color-surface);
-          backdrop-filter: blur(20px);
-          -webkit-backdrop-filter: blur(20px);
-          border: 1px solid rgba(255, 255, 255, 0.1);
-          padding: 1.5rem;
-          border-radius: var(--radius-lg);
-          margin-bottom: 2rem;
-          box-shadow: var(--shadow-glass);
-          transition: all 0.3s ease;
-        }
-
-        .main-controls {
-          display: flex;
-          justify-content: center;
-          align-items: center;
-          gap: 2rem;
-          margin-bottom: 1.5rem;
-        }
-
-        .btn-primary {
-          background: var(--color-primary);
-          color: white;
-          border-radius: 50%;
-          width: 72px;
-          height: 72px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          transition: var(--transition-normal);
-          box-shadow: 0 4px 14px 0 rgba(59, 130, 246, 0.5);
-          border: 4px solid rgba(255,255,255,0.1);
-        }
-
-        .btn-primary.playing {
-            background: var(--color-accent);
-            box-shadow: 0 4px 14px 0 rgba(225, 29, 72, 0.5);
-        }
-
-        .btn-primary:active {
-           transform: scale(0.95);
-        }
-        
-        .btn-icon {
-          color: var(--color-text-secondary);
-          padding: 12px;
-          border-radius: 50%;
-          transition: var(--transition-normal);
-          background: rgba(255,255,255,0.05);
-        }
-
-        .btn-icon:hover {
-          color: var(--color-text);
-          background: rgba(255,255,255,0.15);
-          transform: translateY(-2px);
-        }
-
-        .sliders {
-          display: grid;
-          gap: 1.5rem;
-        }
-
-        .control-group {
-          display: flex;
-          flex-direction: column;
-          gap: 0.75rem;
-        }
-        
-        .control-row {
-            display: flex;
-            gap: 1rem;
-        }
-        
-        .half {
-            flex: 1;
-        }
-        
-        .full {
-            width: 100%;
-        }
-
-        label {
-          font-size: 0.8rem;
-          font-weight: 600;
-          color: var(--color-text-secondary);
-          text-transform: uppercase;
-          letter-spacing: 0.5px;
-        }
-
-        /* Improved Range Slider */
-        input[type=range] {
-          width: 100%;
-          -webkit-appearance: none;
-          background: transparent;
-          height: 24px; /* Larger touch target area */
-          margin: 0;
-        }
-        
-        input[type=range]::-webkit-slider-thumb {
-          -webkit-appearance: none;
-          height: 24px;
-          width: 24px;
-          border-radius: 50%;
-          background: var(--color-primary);
-          cursor: pointer;
-          margin-top: -10px;
-          box-shadow: 0 2px 6px rgba(0,0,0,0.4);
-          border: 2px solid white;
-        }
-        
-        input[type=range]::-webkit-slider-runnable-track {
-          width: 100%;
-          height: 4px;
-          cursor: pointer;
-          background: rgba(255,255,255,0.15);
-          border-radius: 2px;
-        }
-        
-        .chunk-options {
-          display: flex;
-          gap: 0.5rem;
-        }
-        
-        .btn-option {
-          flex: 1;
-          padding: 0.75rem;
-          background: rgba(255,255,255,0.05);
-          border-radius: var(--radius-sm);
-          color: var(--color-text-secondary);
-          border: 1px solid transparent;
-          transition: var(--transition-normal);
-          font-size: 0.9rem;
-          font-weight: 500;
-        }
-        
-        .btn-option.active {
-          background: var(--color-primary);
-          color: white;
-          border-color: var(--color-primary);
-          box-shadow: 0 2px 8px rgba(59, 130, 246, 0.4);
-        }
-        
-        /* --- Mobile Overhaul --- */
-        @media (max-width: 640px) {
-            .controls-container {
-                position: fixed;
-                bottom: 0;
-                left: 0;
-                right: 0;
-                margin: 0;
-                border-radius: 24px 24px 0 0;
-                border: none;
-                border-top: 1px solid rgba(255,255,255,0.1);
-                padding: 1.5rem;
-                padding-bottom: calc(1.5rem + env(safe-area-inset-bottom));
-                z-index: 100;
-                background: rgba(15, 23, 42, 0.95); /* More solid for contrast */
-                box-shadow: 0 -4px 20px rgba(0,0,0,0.4);
-            }
-            
-            /* Hide secondary controls initially or make them compact? 
-               For now, stack them but make main controls prominent. */
-               
-            .main-controls {
-                margin-bottom: 2rem;
-                justify-content: space-between; /* Spread reset/play */
-                padding: 0 1rem;
-            }
-            
-            .btn-primary {
-                width: 80px;
-                height: 80px; /* Huge play button */
-            }
-            
-            .control-row {
-                display: none; /* Hide font/chunk options on main screen to save space? Or put in a modal? 
-                                  User said "horrendous", clutter is a big factor. 
-                                  Let's keep WPM and Progress, hide Font/Chunk details often used less.
-                               */
-            }
-            
-            /* We need a way to show them back though. 
-               Maybe just wrap them or scroll? 
-               Let's just stack properly for now and rely on scroll if needed, 
-               but fixed height container is risky.
-            */
-            
-            .control-row {
-                display: flex; /* Restore it */
-                gap: 0.5rem;
-            }
-            
-            .main-controls {
-                order: -1; /* Ensure top */
-            }
-            
-            /* If we want a really clean UI, we might want to put settings in a slide-up.
-               But for this task, just cleaning the layout: */
-            
-            .sliders {
-                gap: 1.5rem;
-                max-height: 40vh;
-                overflow-y: auto;
-                padding-bottom: 1rem;
-            }
-        }
-      `}</style>
     </div>
   );
 };
