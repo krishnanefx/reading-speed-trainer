@@ -29,10 +29,10 @@
 
 ## Phase 3 - Worker-First Heavy Processing
 - [x] Move EPUB parsing to worker.
-- [ ] Add progressive EPUB ingestion for very large files.
+- [x] Add progressive EPUB ingestion for very large files.
 - [x] Move tokenization/normalization heavy work off main thread.
-- [ ] Add backpressure for imports to avoid long main-thread blocks.
-- [ ] Remove duplicated EPUB parsing logic — `fileHelpers.ts` has a full main-thread parser that duplicates the worker; extract shared types and make the main-thread path a thin fallback only.
+- [x] Add backpressure for imports to avoid long main-thread blocks.
+- [x] Remove duplicated EPUB parsing logic — `fileHelpers.ts` has a full main-thread parser that duplicates the worker; extract shared types and make the main-thread path a thin fallback only.
 
 ## Phase 4 - Security + Reliability
 - [ ] Remove remaining inline styles/scripts and drop CSP `unsafe-inline`.
