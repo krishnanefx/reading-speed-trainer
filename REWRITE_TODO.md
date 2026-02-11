@@ -71,4 +71,4 @@
 - [x] **Stabilize callback identities in `App.tsx`** — `onBack` handlers and `onUpdateStats` are now stable via `useCallback`.
 - [x] **Fix hash-based routing edge cases** — added guard refs to prevent hashchange/view-sync feedback loops.
 - [x] **Consolidate font-size setting** — removed `useState(3)` indirection in `App.tsx` and use constant default value.
-- [ ] **Lazy-load `epubjs` dependency** — `epubjs` is in the `epub` manual chunk but is never imported anywhere in application code; it may be dead weight. Audit and remove if unused.
+- [x] **Lazy-load/remove `epubjs` dependency** — audited and removed unused `epubjs`; retained dedicated parsing chunk for `jszip`.
