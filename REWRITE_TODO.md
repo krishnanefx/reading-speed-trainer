@@ -56,7 +56,7 @@
 - [ ] E2E test for first load, open book, resume, and offline/online transitions.
 - [ ] Structured telemetry/error reporting with privacy-safe payloads.
 - [ ] Set up test infrastructure (Vitest) — currently zero test files exist anywhere in the project.
-- [ ] Add type-safe DB access — `getBooks()` uses `eslint-disable @typescript-eslint/no-explicit-any` to cast records; add proper typed helpers.
+- [x] Add type-safe DB access — `getBooks()` uses `eslint-disable @typescript-eslint/no-explicit-any` to cast records; add proper typed helpers.
 
 ## Phase 7 - Repo Cleanup
 - [x] Audit root files and archive docs no longer used by current architecture.
