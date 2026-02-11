@@ -1,4 +1,4 @@
-import { toSafeNumber, type Book, type Session, type SyncItem, type SyncPayload } from './models';
+import { toSafeNumber, type Book, type Session, type SyncItem, type SyncPayload } from './models.js';
 
 export const normalizeErrorMessage = (error: unknown): string => {
     if (error instanceof Error && error.message) return error.message;
