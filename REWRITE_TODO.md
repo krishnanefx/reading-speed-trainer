@@ -52,7 +52,7 @@
 
 ## Phase 6 - Testing + Observability
 - [x] Unit tests for reader scheduler and sync merge logic.
-- [~] Integration tests for DB + sync queue replay/retry (added cloud-sync retry/queue integration tests via `tests/integration/cloud-sync.test.ts`; full IndexedDB replay-path coverage still pending).
+- [~] Integration tests for DB + sync queue replay/retry (added cloud-sync retry/queue integration tests via `tests/integration/cloud-sync.test.ts` and import/export persistence tests via `tests/integration/import-export.test.ts`; full IndexedDB replay-path coverage still pending).
 - [ ] E2E test for first load, open book, resume, and offline/online transitions.
 - [~] Structured telemetry/error reporting with privacy-safe payloads (added structured logger with level/event payloads, sensitive-field redaction, and optional production warn/error sink via `VITE_LOG_SINK_URL`; backend ingestion/monitoring rollout still pending).
 - [~] Set up test infrastructure (Vitest) — added local TypeScript + `node:test` unit pipeline (`tsconfig.tests.json`, `tests/unit/*`, and `npm run test:unit`) without network installs; Vitest migration still optional.
