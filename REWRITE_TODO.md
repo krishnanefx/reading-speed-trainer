@@ -66,7 +66,7 @@
 
 ## Phase 8 - Architecture Refactors (New)
 - [~] **Split `db.ts` monolith** — extracted shared models/types/sanitizers/checksum/import normalization into `src/utils/db/models.ts`, sync queue utilities into `src/utils/db/syncQueue.ts`, cloud push helpers into `src/utils/db/cloudSync.ts`, manual backup import/export into `src/utils/db/importExport.ts`, cloud-pull reconciliation into `src/utils/db/cloudPull.ts`, progress state helpers into `src/utils/db/progress.ts`, and local CRUD/session helpers into `src/utils/db/localData.ts`; added `src/utils/db/index.ts` facade and migrated app imports to it; remaining optional cleanup is renaming `src/utils/db.ts` into the facade path.
-- [~] **Extract `App.tsx` concerns** — moved gamification/session update flow to `utils/gamification.ts`, hash-view sync to `hooks/useHashViewSync.ts`, auth session lifecycle to `hooks/useAuthSession.ts`, and initialization/sync orchestration to `hooks/useAppBootstrap.ts`; remaining work is final route/view orchestration decomposition.
+- [x] **Extract `App.tsx` concerns** — moved gamification/session update flow to `utils/gamification.ts`, hash-view sync to `hooks/useHashViewSync.ts`, auth session lifecycle to `hooks/useAuthSession.ts`, initialization/sync orchestration to `hooks/useAppBootstrap.ts`, and route/view orchestration to `hooks/useAppViewRouting.ts`.
 - [x] **Unify settings hydration** — `App` and `Settings` now use shared settings helpers (DB + localStorage write-through) for consistent load/save.
 - [x] **Stabilize callback identities in `App.tsx`** — `onBack` handlers and `onUpdateStats` are now stable via `useCallback`.
 - [x] **Fix hash-based routing edge cases** — added guard refs to prevent hashchange/view-sync feedback loops.
