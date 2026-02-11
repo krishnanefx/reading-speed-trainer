@@ -20,7 +20,7 @@ import { processSyncQueue, subscribeSyncStatus } from './utils/db';
 import { perfLog } from './utils/perf';
 
 type AppView = 'library' | 'reader' | 'settings' | 'stats' | 'gym' | 'achievements';
-type AppPhase = 'boot' | 'hydrating' | 'ready' | 'error';
+type AppPhase = 'boot' | 'hydrating' | 'ready' | 'offline' | 'error';
 const APP_VIEWS: readonly AppView[] = ['library', 'reader', 'settings', 'stats', 'gym', 'achievements'];
 
 const isAppView = (value: string): value is AppView => {
@@ -60,6 +60,7 @@ function App() {
       toast('Offline Mode', { id: 'offline-toast', icon: '📶' });
     }
   }, [isOnline]);
+  const effectivePhase: AppPhase = phase === 'ready' && !isOnline ? 'offline' : phase;
 
   // App Preferences (Default Settings)
   const [defaultWpm, setDefaultWpm] = useState(300);
@@ -274,9 +275,9 @@ function App() {
 
   return (
     <div className="container" style={{ transition: 'all 0.5s ease' }}>
-      {phase !== 'ready' ? (
+      {effectivePhase !== 'ready' && effectivePhase !== 'offline' ? (
         <div className="view-loader" role="status" aria-live="polite">
-          {phase === 'error' ? 'Initialization failed.' : 'Loading FlashRead...'}
+          {effectivePhase === 'error' ? 'Initialization failed.' : 'Loading FlashRead...'}
         </div>
       ) : (
         <>
