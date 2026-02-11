@@ -42,7 +42,7 @@
 - [x] Add React Error Boundaries around each lazy-loaded view so a crash in one view doesn't blank the entire app.
 
 ## Phase 5 - UX/Performance Polish
-- [~] Virtualize heavy list paths and preserve scroll position exactly (incremental windowing + observer paging added for library; exact scroll-restoration path still pending).
+- [~] Virtualize heavy list paths and preserve scroll position exactly (incremental windowing + observer paging added for library, and cover hydration now fetches visible cards only; exact scroll-restoration path still pending).
 - [x] Add skeletons and phased loading UI for library and stats.
 - [x] Remove remaining large inline style objects in interactive components.
 - [x] Add diagnostics panel for slow-path phases from perf logs.
