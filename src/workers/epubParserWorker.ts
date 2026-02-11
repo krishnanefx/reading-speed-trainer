@@ -6,8 +6,16 @@ interface EpubParseRequest {
 
 interface EpubParseSuccess {
   ok: true;
+  kind: 'result';
   text: string;
   cover?: string;
+}
+
+interface EpubParseProgress {
+  ok: true;
+  kind: 'progress';
+  processed: number;
+  total: number;
 }
 
 interface EpubParseFailure {
@@ -15,7 +23,7 @@ interface EpubParseFailure {
   error: string;
 }
 
-type EpubParseResponse = EpubParseSuccess | EpubParseFailure;
+type EpubParseResponse = EpubParseSuccess | EpubParseProgress | EpubParseFailure;
 
 const stripTags = (html: string): string => {
   return html
@@ -61,7 +69,12 @@ const bytesToBase64 = (bytes: Uint8Array): string => {
   return btoa(binary);
 };
 
-const parseEpub = async (arrayBuffer: ArrayBuffer): Promise<EpubParseSuccess> => {
+const pause = (ms = 0) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
+const parseEpub = async (
+  arrayBuffer: ArrayBuffer,
+  onProgress: (processed: number, total: number) => void
+): Promise<EpubParseSuccess> => {
   const zip = await new JSZip().loadAsync(arrayBuffer);
 
   const containerXml = await zip.file('META-INF/container.xml')?.async('text');
@@ -129,24 +142,33 @@ const parseEpub = async (arrayBuffer: ArrayBuffer): Promise<EpubParseSuccess> =>
   }
 
   const textChunks: string[] = [];
-  for (const href of spineHrefs) {
+  for (let index = 0; index < spineHrefs.length; index += 1) {
+    const href = spineHrefs[index];
     const entry = zip.file(href);
     if (!entry) continue;
     const html = await entry.async('text');
     const text = stripTags(html);
     if (text.length > 0) textChunks.push(text);
+
+    onProgress(index + 1, spineHrefs.length);
+    if ((index + 1) % 8 === 0) {
+      await pause(0);
+    }
   }
 
   if (textChunks.length === 0) {
     throw new Error('No readable text was found in this EPUB.');
   }
 
-  return { ok: true, text: textChunks.join('\n\n'), cover: coverDataUrl };
+  return { ok: true, kind: 'result', text: textChunks.join('\n\n'), cover: coverDataUrl };
 };
 
 self.onmessage = async (event: MessageEvent<EpubParseRequest>) => {
   try {
-    const result = await parseEpub(event.data.arrayBuffer);
+    const result = await parseEpub(event.data.arrayBuffer, (processed, total) => {
+      const progress: EpubParseProgress = { ok: true, kind: 'progress', processed, total };
+      self.postMessage(progress);
+    });
     const response: EpubParseResponse = result;
     self.postMessage(response);
   } catch (error) {
