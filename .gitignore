@@ -24,3 +24,6 @@ dist-ssr
 *.sw?
 .env
 *.epub
+
+# Local test books
+*.epub
