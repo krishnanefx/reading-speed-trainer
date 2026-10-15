@@ -87,3 +87,7 @@ npm run ci                # all of the above, as run by GitHub Actions
 ## 📱 Mobile Support
 
 FlashRead is responsive and works well on phones. Add it to your home screen for full-screen, standalone mode.
+
+## License
+
+MIT. See [LICENSE](LICENSE).
